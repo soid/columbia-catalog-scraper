@@ -1,0 +1,6 @@
+Data catalogs description:
+
+    raw     - crawled html files without modification sorted by semester, department
+                and crawling date. It enables a history of the catalog and extracting
+                some features from previous semesters not available online anymore.
+
