@@ -1,4 +1,5 @@
 import re
+import urllib
 
 import scrapy
 from scrapy import Request
@@ -6,7 +7,7 @@ from urllib.parse import urlparse
 import logging
 
 from columbia_crawler import util
-from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing
+from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing, CulpaInstructor
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +73,12 @@ class CatalogSpider(scrapy.Spider):
         class_id = [p for p in response.url.split('/') if len(p) > 0][-1]
         content = [tr.css('td *::text').getall() for tr in response.css('tr')]
 
+        # Parse instructor name
         tmp = [c for c in content if c[0] == 'Instructor']
         if len(tmp) > 0:
             instructor = tmp[0][1]
             instructor = re.sub(r'[\s-]+$', '', instructor)  # clean up
+            yield self._follow_culpa_instructor(instructor)
         else:
             instructor = None
 
@@ -84,4 +87,40 @@ class CatalogSpider(scrapy.Spider):
             instructor=instructor,
             department_listing=response.meta.get('department_listing'),
             raw_content=response.body_as_unicode()
+        )
+
+    # Parsing CULPA instructors
+
+    def _follow_culpa_instructor(self, instructor):
+        url = 'http://culpa.info/search?utf8=✓&search=' \
+              + urllib.parse.quote_plus(instructor) + '&commit=Search'
+        return Request(url, callback=self.parse_culpa_search_instructor,
+                       meta={'instructor': instructor})
+
+    def parse_culpa_search_instructor(self, response):
+        found = response.css('.search_results .box tr td')
+        if found:
+            link = found.css('a::attr(href)').get()
+            url = 'http://culpa.info' + link
+            nugget = found.css('img.nugget::attr(alt)').get()
+            yield Request(url, callback=self.parse_culpa_instructor,
+                          meta={**response.meta,
+                                'link': link,
+                                'nugget': nugget})
+
+    def parse_culpa_instructor(self, response):
+        # Idea: we could classify reviews sentiment if we capture review texts here
+
+        nugget = None
+        if response.meta.get('nugget'):
+            if response.meta.get('nugget').upper().startswith("GOLD"):
+                nugget = CulpaInstructor.NUGGET_GOLD
+            if response.meta.get('nugget').upper().startswith("SILVER"):
+                nugget = CulpaInstructor.NUGGET_SILVER
+
+        yield CulpaInstructor(
+            name=response.meta.get('instructor'),
+            link=response.meta.get('link'),
+            reviews_count=len(response.css('div.professor .review')),
+            nugget=nugget
         )

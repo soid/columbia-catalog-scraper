@@ -29,3 +29,13 @@ class ColumbiaClassListing(scrapy.Item):
 
     def describe(self):
         return self['class_id']
+
+
+class CulpaInstructor(scrapy.Item):
+    name = scrapy.Field()
+    link = scrapy.Field()
+    reviews_count = scrapy.Field()
+    nugget = scrapy.Field()
+
+    NUGGET_GOLD = 'gold'
+    NUGGET_SILVER = 'silver'

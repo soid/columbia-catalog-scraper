@@ -4,7 +4,7 @@ from scrapy import Request
 from scrapy.http import HtmlResponse
 import os.path
 
-from columbia_crawler.items import ColumbiaDepartmentListing
+from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing
 from columbia_crawler.spiders.catalog import CatalogSpider
 
 with Betamax.configure() as config:
@@ -12,9 +12,9 @@ with Betamax.configure() as config:
     config.cassette_library_dir = os.path.dirname(__file__) + '/cassettes'
     config.preserve_exact_body_bytes = True
 
-
 # Recording Cassettes:
 import requests
+
 session = requests.Session()
 recorder = Betamax(session)
 
@@ -57,8 +57,8 @@ class TestCatalogSpider(BetamaxTestCase):
     def test_parse_class_listing(self):
         results = self._get_class_listing("http://www.columbia.edu/cu/bulletin/uwb/subj/COMS/W4156-20203-001/")
 
-        assert len(results) == 1
-        result = results[0]
+        assert len(results) > 1
+        result = results[1]
         # print(result)
         assert result['class_id'] == 'W4156-20203-001'
         assert result['department_listing'] == {'department_code': 'COMS',
@@ -138,10 +138,9 @@ class TestCatalogSpider(BetamaxTestCase):
         for url in urls:
             # print('Testing URL:', url)
             results = self._get_class_listing(url)
-            assert len(results) == 1
-            result = results[0]
+            assert len(results) > 0
+            result = [r for r in results if type(r) == ColumbiaClassListing][0]
             instructors.append(result['instructor'])
-        print(instructors)
         assert instructors == ['Julia Doe', 'Tovah Klein', 'Kristie Schlauraff', 'Nancy Worman', 'Michael S Paulson',
                                None, 'Rob Gebeloff', 'Adam H Cannon', 'Gareth Williams', 'Michael C Beckley', None,
                                'Daniel Esposito', None, None, 'Robert A Cook', 'Arthur Kuflik', 'Abdul Nanji',
@@ -154,3 +153,55 @@ class TestCatalogSpider(BetamaxTestCase):
                                'Virginia Page Fortna', 'Monette Zard', 'Arthur Langer', 'Alberto Rodriguez',
                                'Andreas Hielscher', 'Lindy Roy', 'Jeanne K Lambert', 'Rosalind Morris',
                                'W. Bentley Macleod', 'Ericka Hart']
+
+    def test_parse_culpa_instructor(self):
+        catalog = CatalogSpider()
+
+        def _test_instr(name):
+            # CULPA search
+            request = catalog._follow_culpa_instructor(name)
+            response = self.session.get(request.url)
+            scrapy_response = HtmlResponse(body=response.content, url=request.url, request=request)
+            result_generator = catalog.parse_culpa_search_instructor(scrapy_response)
+            results_search = list(result_generator)
+            if len(results_search) == 0:
+                return results_search, None
+            assert type(results_search[0]) == Request
+
+            # CULPA prof page
+            request = results_search[0]
+            response = self.session.get(request.url)
+            scrapy_response = HtmlResponse(body=response.content, url=request.url, request=request)
+            result_generator = catalog.parse_culpa_instructor(scrapy_response)
+            results_prof = list(result_generator)
+
+            return results_search, results_prof
+
+        # found prof test case
+        results_search, results_prof = _test_instr('John Glendinning')
+        assert len(results_search) > 0
+        assert type(results_search[0]) == Request
+        assert results_prof == [{'link': '/professors/953',
+                                 'name': 'John Glendinning',
+                                 'nugget': None,
+                                 'reviews_count': 23}]
+
+        # not existing prof
+        results_search, results_prof = _test_instr('Really Unknown Professor')  # there's "Unknown Professor"
+        assert len(results_search) == 0
+
+        # silver nugget
+        results_search, results_prof = _test_instr('Jennie Kassanoff')
+        assert len(results_search) > 0
+        assert results_prof == [{'link': '/professors/717',
+                                 'name': 'Jennie Kassanoff',
+                                 'nugget': 'silver',
+                                 'reviews_count': 19}]
+
+        # silver nugget
+        results_search, results_prof = _test_instr('Aftab Ahmad')
+        assert len(results_search) > 0
+        assert results_prof == [{'link': '/professors/10941',
+                                 'name': 'Aftab Ahmad',
+                                 'nugget': 'gold',
+                                 'reviews_count': 11}]
