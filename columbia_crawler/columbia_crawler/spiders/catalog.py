@@ -16,6 +16,7 @@ class CatalogSpider(scrapy.Spider):
 
     custom_settings = {
         'HTTPCACHE_ENABLED': True,
+        # 'HTTPCACHE_ENABLED': False,
         'ITEM_PIPELINES': {
             'columbia_crawler.pipelines.StoreRawListeningPipeline': 300,
         }

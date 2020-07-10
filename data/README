@@ -4,3 +4,5 @@ Data catalogs description:
                 and crawling date. It enables a history of the catalog and extracting
                 some features from previous semesters not available online anymore.
 
+    raw/{SEMESTER}/{DEPARTMENT CODE}/{TIMESTAMP}.html - department listing
+    raw/{SEMESTER}/{DEPARTMENT CODE}/{CLASS CODE}/{TIMESTAMP}.html - class listing
