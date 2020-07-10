@@ -15,3 +15,8 @@ scrapy shell 'https://en.wikipedia.org/w/api.php?action=query&list=search&srsear
 >>> s.text()
 ```
 
+## Tests
+
+### Updating request data
+
+For tests that use Betamax, remove appropriate file in cassettes/ folder and rerun the test.

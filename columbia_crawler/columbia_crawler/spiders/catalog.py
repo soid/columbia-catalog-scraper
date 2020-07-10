@@ -1,3 +1,5 @@
+import re
+
 import scrapy
 from scrapy import Request
 from urllib.parse import urlparse
@@ -70,8 +72,16 @@ class CatalogSpider(scrapy.Spider):
         class_id = [p for p in response.url.split('/') if len(p) > 0][-1]
         content = [tr.css('td *::text').getall() for tr in response.css('tr')]
 
+        tmp = [c for c in content if c[0] == 'Instructor']
+        if len(tmp) > 0:
+            instructor = tmp[0][1]
+            instructor = re.sub(r'[\s-]+$', '', instructor)  # clean up
+        else:
+            instructor = None
+
         yield ColumbiaClassListing(
             class_id=class_id,
+            instructor=instructor,
             department_listing=response.meta.get('department_listing'),
             raw_content=response.body_as_unicode()
         )
