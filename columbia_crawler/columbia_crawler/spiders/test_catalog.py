@@ -132,16 +132,17 @@ class TestCatalogSpider(BetamaxTestCase):
             'http://www.columbia.edu//cu/bulletin/uwb/subj/ANTH/W3997-20203-012/',
             'http://www.columbia.edu//cu/bulletin/uwb/subj/ECPS/W4921-20201-001/',
             'http://www.columbia.edu//cu/bulletin/uwb/subj/SOCW/T7305-20201-003/',
+            'http://www.columbia.edu/cu/bulletin/uwb/subj/COMS/W4156-20203-001/'
         ]
 
         instructors = []
         for url in urls:
             # print('Testing URL:', url)
             results = self._get_class_listing(url)
-            assert len(results) > 0
+            self.assertGreater(len(results), 0)
             result = [r for r in results if type(r) == ColumbiaClassListing][0]
             instructors.append(result['instructor'])
-        assert instructors == ['Julia Doe', 'Tovah Klein', 'Kristie Schlauraff', 'Nancy Worman', 'Michael S Paulson',
+        self.assertEqual(instructors, ['Julia Doe', 'Tovah Klein', 'Kristie Schlauraff', 'Nancy Worman', 'Michael S Paulson',
                                None, 'Rob Gebeloff', 'Adam H Cannon', 'Gareth Williams', 'Michael C Beckley', None,
                                'Daniel Esposito', None, None, 'Robert A Cook', 'Arthur Kuflik', 'Abdul Nanji',
                                'Assaf Zeevi', 'Naama Harel', 'Peter Platt', 'Stephane Goldsand', "Robert G O'Meally",
@@ -152,7 +153,7 @@ class TestCatalogSpider(BetamaxTestCase):
                                'Michael S Paulson', 'Maura L Spiegel', 'Geraldine Downey', None, 'James Teherani',
                                'Virginia Page Fortna', 'Monette Zard', 'Arthur Langer', 'Alberto Rodriguez',
                                'Andreas Hielscher', 'Lindy Roy', 'Jeanne K Lambert', 'Rosalind Morris',
-                               'W. Bentley Macleod', 'Ericka Hart']
+                               'W. Bentley Macleod', 'Ericka Hart', 'Gail E Kaiser'])
 
     def test_parse_culpa_instructor(self):
         catalog = CatalogSpider()
@@ -166,7 +167,7 @@ class TestCatalogSpider(BetamaxTestCase):
             results_search = list(result_generator)
             if len(results_search) == 0:
                 return results_search, None
-            assert type(results_search[0]) == Request
+            self.assertIsInstance(results_search[0], Request)
 
             # CULPA prof page
             request = results_search[0]
@@ -179,29 +180,29 @@ class TestCatalogSpider(BetamaxTestCase):
 
         # found prof test case
         results_search, results_prof = _test_instr('John Glendinning')
-        assert len(results_search) > 0
-        assert type(results_search[0]) == Request
-        assert results_prof == [{'link': '/professors/953',
+        self.assertGreater(len(results_search), 0)
+        self.assertIsInstance(results_search[0], Request)
+        self.assertEqual(results_prof, [{'link': '/professors/953',
                                  'name': 'John Glendinning',
                                  'nugget': None,
-                                 'reviews_count': 23}]
+                                 'reviews_count': 23}])
 
         # not existing prof
         results_search, results_prof = _test_instr('Really Unknown Professor')  # there's "Unknown Professor"
-        assert len(results_search) == 0
+        self.assertEqual(len(results_search), 0)
 
         # silver nugget
         results_search, results_prof = _test_instr('Jennie Kassanoff')
-        assert len(results_search) > 0
-        assert results_prof == [{'link': '/professors/717',
+        self.assertGreater(len(results_search), 0)
+        self.assertEqual(results_prof, [{'link': '/professors/717',
                                  'name': 'Jennie Kassanoff',
                                  'nugget': 'silver',
-                                 'reviews_count': 19}]
+                                 'reviews_count': 19}])
 
         # silver nugget
         results_search, results_prof = _test_instr('Aftab Ahmad')
-        assert len(results_search) > 0
-        assert results_prof == [{'link': '/professors/10941',
+        self.assertGreater(len(results_search), 0)
+        self.assertEqual(results_prof, [{'link': '/professors/10941',
                                  'name': 'Aftab Ahmad',
                                  'nugget': 'gold',
-                                 'reviews_count': 11}]
+                                 'reviews_count': 11}])
