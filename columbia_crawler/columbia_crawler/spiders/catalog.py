@@ -68,6 +68,7 @@ class CatalogSpider(scrapy.Spider):
                     response.meta.get('department_listing')['department_code'], response.url, response.status)
         # TODO parse the class listing into fields
         class_id = [p for p in response.url.split('/') if len(p) > 0][-1]
+        content = [tr.css('td *::text').getall() for tr in response.css('tr')]
 
         yield ColumbiaClassListing(
             class_id=class_id,
