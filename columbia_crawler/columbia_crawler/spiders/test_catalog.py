@@ -69,9 +69,9 @@ class TestCatalogSpider(BetamaxTestCase):
         assert result['instructor'] == 'Gail E Kaiser'
         assert set(result.keys()) == {'class_id', 'department_listing', 'raw_content', 'instructor'}
 
-    def test_parse_class_instructor(self):
-        # TODO ideally this test should be (auto)updated every semester in order to ensure everything is working.
-        urls = [  # get from scrapy log in VIM: %s/^.\+<GET \(.\+\)>.\+$/\1/g
+    # some random class URLs
+    # TODO ideally this test should be (auto)updated every semester in order to ensure everything is working.
+    test_class_urls = [  # get from scrapy log in VIM: %s/^.\+<GET \(.\+\)>.\+$/\1/g
             'http://www.columbia.edu//cu/bulletin/uwb/subj/MUSI/V3129-20201-001/',
             'http://www.columbia.edu//cu/bulletin/uwb/subj/PSYC/X3606-20201-003/',
             'http://www.columbia.edu//cu/bulletin/uwb/subj/ENGL/C1010-20201-631/',
@@ -135,8 +135,9 @@ class TestCatalogSpider(BetamaxTestCase):
             'http://www.columbia.edu/cu/bulletin/uwb/subj/COMS/W4156-20203-001/'
         ]
 
+    def test_parse_class_instructor(self):
         instructors = []
-        for url in urls:
+        for url in TestCatalogSpider.test_class_urls:
             # print('Testing URL:', url)
             results = self._get_class_listing(url)
             self.assertGreater(len(results), 0)
@@ -160,7 +161,8 @@ class TestCatalogSpider(BetamaxTestCase):
 
         def _test_instr(name):
             # CULPA search
-            request = catalog._follow_culpa_instructor(name)
+            department_listing = ColumbiaDepartmentListing()
+            request = catalog._follow_culpa_instructor(name, department_listing)
             response = self.session.get(request.url)
             scrapy_response = HtmlResponse(body=response.content, url=request.url, request=request)
             result_generator = catalog.parse_culpa_search_instructor(scrapy_response)

@@ -19,7 +19,7 @@ NEWSPIDER_MODULE = 'columbia_crawler.spiders'
 #USER_AGENT = 'columbia_crawler (+http://www.yourdomain.com)'
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False  # for CULPA.info because http://api.culpa.info is dead (e.g. http://api.culpa.info/professors/search/Robert)
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 #CONCURRENT_REQUESTS = 32

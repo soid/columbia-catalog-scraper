@@ -78,7 +78,7 @@ class CatalogSpider(scrapy.Spider):
         if len(tmp) > 0:
             instructor = tmp[0][1]
             instructor = re.sub(r'[\s-]+$', '', instructor)  # clean up
-            yield self._follow_culpa_instructor(instructor)
+            yield self._follow_culpa_instructor(instructor, response.meta.get('department_listing'))
         else:
             instructor = None
 
@@ -91,15 +91,21 @@ class CatalogSpider(scrapy.Spider):
 
     # Parsing CULPA instructors
 
-    def _follow_culpa_instructor(self, instructor):
+    def _follow_culpa_instructor(self, instructor, department_listing):
         url = 'http://culpa.info/search?utf8=✓&search=' \
               + urllib.parse.quote_plus(instructor) + '&commit=Search'
         return Request(url, callback=self.parse_culpa_search_instructor,
-                       meta={'instructor': instructor})
+                       meta={
+                           'department_listing': department_listing,
+                           'instructor': instructor})
 
     def parse_culpa_search_instructor(self, response):
-        found = response.css('.search_results .box tr td')
+        found = response.css('.search_results .box tr td:first-child')
         if found:
+            if len(found) > 1:
+                logger.warning("More than 1 result for '%s' from '%s' on CULPA",
+                               response.meta.get('instructor'),
+                               response.meta.get('department_listing')['department_code'])
             link = found.css('a::attr(href)').get()
             url = 'http://culpa.info' + link
             nugget = found.css('img.nugget::attr(alt)').get()
