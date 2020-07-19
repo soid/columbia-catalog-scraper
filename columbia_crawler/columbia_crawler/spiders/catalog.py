@@ -25,6 +25,8 @@ class CatalogSpider(scrapy.Spider):
         }
     }
 
+    empty_string = re.compile("^[ \\n]*$")
+
     def get_domain(self, response):
         return '{uri.scheme}://{uri.netloc}/'.format(uri=urlparse(response.url))
 
@@ -34,7 +36,6 @@ class CatalogSpider(scrapy.Spider):
         @url http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html
         @returns items 0 0
         @returns requests 400 500
-        @scrapes Title Author Year Price
         """
         logger.info('Parsing URL=%s Status=%d', response.url, response.status)
 
@@ -67,25 +68,65 @@ class CatalogSpider(scrapy.Spider):
                               })
 
     def parse_class_listing(self, response):
+        """ Starting with department list, crawl all listings by each department.
+
+        @url http://www.columbia.edu/cu/bulletin/uwb/subj/COMS/W3157-20203-001/
+        @returns items 1 1
+        @returns requests 1 1
+        """
         logger.info('Parsing class from department %s URL=%s Status=%d',
-                    response.meta.get('department_listing')['department_code'], response.url, response.status)
+                    self._get_department_listing(response), response.url, response.status)
         # TODO parse the class listing into fields
         class_id = [p for p in response.url.split('/') if len(p) > 0][-1]
         content = [tr.css('td *::text').getall() for tr in response.css('tr')]
 
-        # Parse instructor name
-        tmp = [c for c in content if c[0] == 'Instructor']
-        if len(tmp) > 0:
-            instructor = tmp[0][1]
+        content = [tr.css('td') for tr in response.css('tr')]
+        content = filter(lambda x: len(x) > 1, content)  # non-fields have only 1 td tag
+
+        # parse all fields into a dict
+        fields = {field_name.css('::text').get(): field_value for field_name, field_value in content}
+
+        # Parse fields
+        def _get_field(field_name, first_line_only=False):
+            if field_name in fields:
+                v = fields[field_name].css('::text')
+                return v.get() if first_line_only else "\n".join(v.getall())
+
+        instructor = _get_field('Instructor', first_line_only=True)
+        if instructor:
             instructor = re.sub(r'[\s-]+$', '', instructor)  # clean up
-            yield self._follow_culpa_instructor(instructor, response.meta.get('department_listing'))
-        else:
-            instructor = None
+            yield self._follow_culpa_instructor(instructor, self._get_department_listing(response))
+
+        # TODO date &time
+        datetime_ = None
+
+        open_to = _get_field("Open To")
+        if open_to:
+            open_to = [s.strip() for s in open_to.split(',')]
+
+        course_descr = _get_field("Course Description")
+        points = _get_field("Points")
+        class_type = _get_field("Type")
+        method_of_instruction = _get_field("Method of Instruction")
+        department = _get_field("Department")
+        call_number = _get_field("Call Number")
+        campus = _get_field("Campus")
+
+        # Parse instructor name
 
         yield ColumbiaClassListing(
             class_id=class_id,
             instructor=instructor,
-            department_listing=response.meta.get('department_listing'),
+            course_descr=course_descr,
+            datetime=datetime_,
+            points=points,
+            type=class_type,
+            department=department,
+            call_number=call_number,
+            open_to=open_to,
+            campus=campus,
+            method_of_instruction=method_of_instruction,
+            department_listing=self._get_department_listing(response),
             raw_content=response.body_as_unicode()
         )
 
@@ -105,7 +146,7 @@ class CatalogSpider(scrapy.Spider):
             if len(found) > 1:
                 logger.warning("More than 1 result for '%s' from '%s' on CULPA",
                                response.meta.get('instructor'),
-                               response.meta.get('department_listing')['department_code'])
+                               self._get_department_listing(response)['department_code'])
             link = found.css('a::attr(href)').get()
             url = 'http://culpa.info' + link
             nugget = found.css('img.nugget::attr(alt)').get()
@@ -130,3 +171,15 @@ class CatalogSpider(scrapy.Spider):
             reviews_count=len(response.css('div.professor .review')),
             nugget=nugget
         )
+
+    # End of Parsing CULPA instructors
+
+    # helpers
+    def _get_department_listing(self, response):
+        return response.meta.get('department_listing',
+                                 ColumbiaDepartmentListing(
+                                     department_code="TEST",
+                                     term_month="testing",
+                                     term_year="testing",
+                                     raw_content="test content")
+                                 )

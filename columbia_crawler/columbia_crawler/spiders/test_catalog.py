@@ -57,17 +57,34 @@ class TestCatalogSpider(BetamaxTestCase):
     def test_parse_class_listing(self):
         results = self._get_class_listing("http://www.columbia.edu/cu/bulletin/uwb/subj/COMS/W4156-20203-001/")
 
-        assert len(results) > 1
+        self.assertGreater(len(results), 1)
         result = results[1]
-        # print(result)
-        assert result['class_id'] == 'W4156-20203-001'
-        assert result['department_listing'] == {'department_code': 'COMS',
-                                                'raw_content': 'N/A',
-                                                'term_month': 'Fall',
-                                                'term_year': '2020'}
-        assert len(result['raw_content']) > 100
-        assert result['instructor'] == 'Gail E Kaiser'
-        assert set(result.keys()) == {'class_id', 'department_listing', 'raw_content', 'instructor'}
+        print(result)
+
+        check_fields = ['instructor', 'course_descr', 'datetime', 'points', 'type',
+                        'department', 'call_number', 'open_to', 'campus',
+                        'method_of_instruction', 'department_listing', 'raw_content']
+        for f in check_fields:
+            self.assertIn(f, result)
+
+        self.assertEqual(result['class_id'], 'W4156-20203-001')
+        self.assertDictEqual(dict(result['department_listing']),
+                         {'department_code': 'COMS',
+                          'raw_content': 'N/A',
+                          'term_month': 'Fall',
+                          'term_year': '2020'})
+        self.assertGreater(len(result['raw_content']), 100)
+        self.assertEqual(result['instructor'], 'Gail E Kaiser')
+        self.assertIn("Prerequisites", result['course_descr'])
+        self.assertIn("emphasis", result['course_descr'])
+        self.assertEqual(result['points'], '3')
+        self.assertEqual(result['call_number'], '10072')
+        self.assertEqual(result['campus'], 'Morningside')
+        self.assertEqual(result['method_of_instruction'], 'In-person')
+        self.assertEqual(result['open_to'], ['Barnard College',
+                'Columbia College', 'Engineering:Undergraduate',
+                'Engineering:Graduate', 'GSAS',
+                'General Studies', 'Journalism'])
 
     # some random class URLs
     # TODO ideally this test should be (auto)updated every semester in order to ensure everything is working.

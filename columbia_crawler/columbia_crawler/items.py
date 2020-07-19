@@ -24,7 +24,18 @@ class ColumbiaDepartmentListing(scrapy.Item):
 class ColumbiaClassListing(scrapy.Item):
     department_listing = scrapy.Field()
     class_id = scrapy.Field()
+
     instructor = scrapy.Field()
+    course_descr = scrapy.Field()
+    datetime = scrapy.Field()
+    points = scrapy.Field()
+    type = scrapy.Field()
+    department = scrapy.Field()
+    call_number = scrapy.Field()
+    open_to = scrapy.Field()
+    campus = scrapy.Field()
+    method_of_instruction = scrapy.Field()
+
     raw_content = scrapy.Field()  # html
 
     def describe(self):
