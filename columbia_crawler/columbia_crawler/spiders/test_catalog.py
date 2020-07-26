@@ -58,7 +58,7 @@ class TestCatalogSpider(BetamaxTestCase):
         results = self._get_class_listing("http://www.columbia.edu/cu/bulletin/uwb/subj/COMS/W4156-20203-001/")
 
         self.assertGreater(len(results), 1)
-        result = results[1]
+        result = next(filter(lambda x: type(x) == ColumbiaClassListing, results))
         print(result)
 
         check_fields = ['instructor', 'course_descr', 'datetime', 'points', 'type',

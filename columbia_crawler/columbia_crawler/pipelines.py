@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import datetime
+import json
 import os
 import difflib
 import logging
 
+from w3lib.html import remove_tags
+
 from columbia_crawler import config
-from columbia_crawler.items import ColumbiaClassListing, ColumbiaDepartmentListing
+from columbia_crawler.items import ColumbiaClassListing, ColumbiaDepartmentListing, WikipediaInstructorSearchResults
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +60,7 @@ class StoreRawListeningPipeline(object):
             self.process_department_listing(item)
         if isinstance(item, ColumbiaClassListing):
             self.process_class_listing(item)
+        return item
 
     def process_department_listing(self, item):
         out_dir = config.DATA_RAW_DIR + "/" + item.term_str() + "/" + item['department_code']
@@ -84,3 +88,22 @@ class StoreRawListeningPipeline(object):
         f = open(out_file, "w")
         f.write(raw_content)
         f.close()
+
+
+class StoreWikiSearchResultsPipeline(object):
+    def open_spider(self, spider):
+        os.makedirs(config.DATA_WIKI_DIR, exist_ok=True)
+        self.file = open(config.DATA_WIKI_DIR + '/instructor-search-results.json', 'w')
+
+    def close_spider(self, spider):
+        self.file.close()
+
+    def process_item(self, item, spider):
+        if isinstance(item, WikipediaInstructorSearchResults):
+            s = json.dumps({
+                'name': item['name'],
+                'search_results': [{'title': r['title'], 'snippet': remove_tags(r['snippet'])}
+                                   for r in item['search_results']]
+            })
+            self.file.write(s + '\n')
+            self.file.flush()

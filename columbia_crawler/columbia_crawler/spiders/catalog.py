@@ -8,11 +8,12 @@ import logging
 
 from columbia_crawler import util
 from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing, CulpaInstructor
+from columbia_crawler.spiders.wiki_search import WikiSearch
 
 logger = logging.getLogger(__name__)
 
 
-class CatalogSpider(scrapy.Spider):
+class CatalogSpider(scrapy.Spider, WikiSearch):
     name = 'catalog'
 
     start_urls = ["http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html"]
@@ -22,6 +23,7 @@ class CatalogSpider(scrapy.Spider):
         # 'HTTPCACHE_ENABLED': False,
         'ITEM_PIPELINES': {
             'columbia_crawler.pipelines.StoreRawListeningPipeline': 300,
+            'columbia_crawler.pipelines.StoreWikiSearchResultsPipeline': 400,
         }
     }
 
@@ -72,13 +74,12 @@ class CatalogSpider(scrapy.Spider):
 
         @url http://www.columbia.edu/cu/bulletin/uwb/subj/COMS/W3157-20203-001/
         @returns items 1 1
-        @returns requests 1 1
+        @returns requests 2 2
         """
         logger.info('Parsing class from department %s URL=%s Status=%d',
-                    self._get_department_listing(response), response.url, response.status)
+                    self._get_department_listing(response)['department_code'], response.url, response.status)
         # TODO parse the class listing into fields
         class_id = [p for p in response.url.split('/') if len(p) > 0][-1]
-        content = [tr.css('td *::text').getall() for tr in response.css('tr')]
 
         content = [tr.css('td') for tr in response.css('tr')]
         content = filter(lambda x: len(x) > 1, content)  # non-fields have only 1 td tag
@@ -95,7 +96,6 @@ class CatalogSpider(scrapy.Spider):
         instructor = _get_field('Instructor', first_line_only=True)
         if instructor:
             instructor = re.sub(r'[\s-]+$', '', instructor)  # clean up
-            yield self._follow_culpa_instructor(instructor, self._get_department_listing(response))
 
         # TODO date &time
         datetime_ = None
@@ -112,9 +112,7 @@ class CatalogSpider(scrapy.Spider):
         call_number = _get_field("Call Number")
         campus = _get_field("Campus")
 
-        # Parse instructor name
-
-        yield ColumbiaClassListing(
+        class_listing = ColumbiaClassListing(
             class_id=class_id,
             instructor=instructor,
             course_descr=course_descr,
@@ -129,6 +127,11 @@ class CatalogSpider(scrapy.Spider):
             department_listing=self._get_department_listing(response),
             raw_content=response.body_as_unicode()
         )
+        yield class_listing
+
+        if instructor:
+            yield self._follow_culpa_instructor(instructor, self._get_department_listing(response))
+            yield self._follow_search_wikipedia_instructor(instructor, class_listing)
 
     # Parsing CULPA instructors
 
@@ -173,13 +176,3 @@ class CatalogSpider(scrapy.Spider):
         )
 
     # End of Parsing CULPA instructors
-
-    # helpers
-    def _get_department_listing(self, response):
-        return response.meta.get('department_listing',
-                                 ColumbiaDepartmentListing(
-                                     department_code="TEST",
-                                     term_month="testing",
-                                     term_year="testing",
-                                     raw_content="test content")
-                                 )

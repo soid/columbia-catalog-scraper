@@ -50,3 +50,18 @@ class CulpaInstructor(scrapy.Item):
 
     NUGGET_GOLD = 'gold'
     NUGGET_SILVER = 'silver'
+
+
+class WikipediaInstructorSearchResults(scrapy.Item):
+    name = scrapy.Field()
+    search_results = scrapy.Field()  # contains 'title' and 'snippet' fields
+
+
+class WikipediaInstructorPotentialArticle(scrapy.Item):
+    name = scrapy.Field()
+    wikipedia_title = scrapy.Field()
+    wikipedia_raw_page = scrapy.Field()
+
+class WikipediaInstructorArticle(scrapy.Item):
+    name = scrapy.Field()
+    wikipedia_title = scrapy.Field()
