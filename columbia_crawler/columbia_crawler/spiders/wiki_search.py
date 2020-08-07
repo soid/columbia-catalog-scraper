@@ -28,7 +28,8 @@ class WikiSearch(CatalogBase):
         @returns items 1 1
         @returns requests 0 0
         """
-        instructor = self._get_class_listing(response)['instructor']
+        cls = self._get_class_listing(response)
+        instructor = cls['instructor']
         json_response = json.loads(response.body_as_unicode())
         search = json_response['query']['search']
         logger.info('WIKI: Search results for %s : %s', instructor, search)
@@ -41,6 +42,7 @@ class WikiSearch(CatalogBase):
         # yield search result item
         sr = WikipediaInstructorSearchResults()
         sr['name'] = instructor
+        sr['class_listing'] = cls
         sr['search_results'] = search
         yield sr
 

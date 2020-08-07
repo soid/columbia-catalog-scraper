@@ -20,7 +20,7 @@ class StoreRawListeningPipeline(object):
     def _get_last_file(path):
         """ Gets the last file from directory (sorted alphabetically)
 
-        >>> last_file = StoreRawListeningPipeline._get_last_file(config.get_test_data_dir("content-diff"))
+        >>> last_file = StoreRawListeningPipeline._get_last_file(config.get_testcase_dir("content-diff"))
         >>> type(last_file) == str and len(last_file) > 5
         True
         >>> last_file.endswith("/content-diff/2020-07-10_18:35_UTC.html")
@@ -36,9 +36,9 @@ class StoreRawListeningPipeline(object):
     def _is_different(content1, content2):
         """ Checks if content is different.
 
-        >>> first_file = config.get_test_data_dir("content-diff") + "/2020-06-28_19:37_UTC.html"
-        >>> same_file = config.get_test_data_dir("content-diff") + "/2020-07-10_07:03_UTC.html"
-        >>> last_file = StoreRawListeningPipeline._get_last_file(config.get_test_data_dir("content-diff"))
+        >>> first_file = config.get_testcase_dir("content-diff") + "/2020-06-28_19:37_UTC.html"
+        >>> same_file = config.get_testcase_dir("content-diff") + "/2020-07-10_07:03_UTC.html"
+        >>> last_file = StoreRawListeningPipeline._get_last_file(config.get_testcase_dir("content-diff"))
         >>> assert first_file != last_file and same_file != last_file and same_file != first_file
         >>> first_content = open(first_file, "r").read()
         >>> same_content = open(same_file, "r").read()
@@ -93,7 +93,10 @@ class StoreRawListeningPipeline(object):
 class StoreWikiSearchResultsPipeline(object):
     def open_spider(self, spider):
         os.makedirs(config.DATA_WIKI_DIR, exist_ok=True)
-        self.file = open(config.DATA_WIKI_DIR + '/instructor-search-results.json', 'w')
+        if config.IN_TEST:
+            self.file = open(config.DATA_WIKI_FILENAME + '.test', 'w')
+        else:
+            self.file = open(config.DATA_WIKI_FILENAME, 'w')
 
     def close_spider(self, spider):
         self.file.close()
@@ -102,8 +105,9 @@ class StoreWikiSearchResultsPipeline(object):
         if isinstance(item, WikipediaInstructorSearchResults):
             s = json.dumps({
                 'name': item['name'],
+                'course_descr': item['class_listing']['course_descr'],
+                'department': item['class_listing']['department'],
                 'search_results': [{'title': r['title'], 'snippet': remove_tags(r['snippet'])}
                                    for r in item['search_results']]
             })
             self.file.write(s + '\n')
-            self.file.flush()

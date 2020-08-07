@@ -54,6 +54,7 @@ class CulpaInstructor(scrapy.Item):
 
 class WikipediaInstructorSearchResults(scrapy.Item):
     name = scrapy.Field()
+    class_listing = scrapy.Field()
     search_results = scrapy.Field()  # contains 'title' and 'snippet' fields
 
 
