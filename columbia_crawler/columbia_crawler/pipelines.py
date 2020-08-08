@@ -95,8 +95,8 @@ class StoreWikiSearchResultsPipeline(object):
     def open_spider(self, spider):
         os.makedirs(config.DATA_WIKI_DIR, exist_ok=True)
         if config.IN_TEST:
-            self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME + '.test', 'w')
-            self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME + '.test', 'w')
+            self.file_wiki_search = open('/tmp/file_wiki_search.test', 'w')
+            self.file_wiki_article = open('/tmp/file_wiki_article.test', 'w')
         else:
             self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME, 'w')
             self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME, 'w')
