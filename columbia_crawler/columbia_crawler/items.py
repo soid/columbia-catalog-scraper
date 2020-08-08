@@ -60,8 +60,10 @@ class WikipediaInstructorSearchResults(scrapy.Item):
 
 class WikipediaInstructorPotentialArticle(scrapy.Item):
     name = scrapy.Field()
+    class_listing = scrapy.Field()
     wikipedia_title = scrapy.Field()
     wikipedia_raw_page = scrapy.Field()
+
 
 class WikipediaInstructorArticle(scrapy.Item):
     name = scrapy.Field()

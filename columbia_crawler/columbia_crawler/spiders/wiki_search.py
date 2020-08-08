@@ -2,18 +2,19 @@ import json
 import logging
 import urllib
 from scrapy import Request
-from w3lib.html import remove_tags
 
-import columbia_crawler.spiders.catalog as catalog
 from columbia_crawler.items import WikipediaInstructorSearchResults, WikipediaInstructorPotentialArticle, \
     WikipediaInstructorArticle
 from columbia_crawler.spiders.catalog_base import CatalogBase
+from models.wiki_search import WikiSearchClassifier, WSC
 
 logger = logging.getLogger(__name__)
 
 
 # Functions related to searching instructors wikipedia profiles
 class WikiSearch(CatalogBase):
+
+    initialized = False  # because scrapy contracts won't call __init__
 
     def _follow_search_wikipedia_instructor(self, instructor, class_listing):
         url = 'https://en.wikipedia.org/w/api.php?action=query&list=search&utf8=&format=json&srsearch=' \
@@ -28,6 +29,11 @@ class WikiSearch(CatalogBase):
         @returns items 1 1
         @returns requests 0 0
         """
+        if not WikiSearch.initialized:
+            self.search_clf = WikiSearchClassifier()
+            self.search_clf.load_model()
+            WikiSearch.initialized = True
+
         cls = self._get_class_listing(response)
         instructor = cls['instructor']
         json_response = json.loads(response.body_as_unicode())
@@ -37,8 +43,6 @@ class WikiSearch(CatalogBase):
         if len(search) == 0:
             return
 
-        possible_match = []
-
         # yield search result item
         sr = WikipediaInstructorSearchResults()
         sr['name'] = instructor
@@ -46,57 +50,52 @@ class WikiSearch(CatalogBase):
         sr['search_results'] = search
         yield sr
 
+        # use classifier to find match or possible match
+        rows = []
+        rows_vec = []
         for result in search:
             title = result['title']
             snippet = result['snippet']
+            row = {
+                'name': instructor,
+                'department': cls['department'],
+                'search_results.title': title,
+                'search_results.snippet': snippet,
+            }
+            rows.append(row)
+            rows_vec.append(self.search_clf.extract_features2vector(row))
 
-            if not catalog.CatalogSpider.validate_name(instructor, title):
-                continue
-
-            if len(search) == 1:
+        # see if we found worthy items
+        pred = self.search_clf.predict(rows_vec)
+        for p, row in zip(pred, rows):
+            if p == WSC.LABEL_RELEVANT:
                 yield WikipediaInstructorArticle(
                     name=instructor,
-                    wikipedia_title=response.meta.get('wiki_title'))
-                return
-
-            snippet = remove_tags(snippet).upper()
-            if "COLUMBIA UNIVERSITY" not in snippet:
-                possible_match.append(result)
-                continue
-
-        # follow some possible articles and try to understand if it's related to searched instructors
-        for result in possible_match:
-            url = "https://en.wikipedia.org/wiki/" + urllib.parse.quote_plus(result['title'].replace(' ', '_'))
-            yield Request(url, callback=self.parse_wiki_article_prof,
-                          meta={**response.meta,
-                                'instructor': instructor,
-                                'wiki_title': result['title']})
-
-        logger.info('WIKI: Not found obvious wiki search results for %s. Following articles: %s',
-                    instructor, [x['title'] for x in possible_match])
-        return
-
-    @staticmethod
-    def validate_name(instructor, title):
-        for name_part in instructor.split(" "):
-            if name_part not in title:
-                return False
-        return True
+                    wikipedia_title=row['search_results.title'])
+                break
+            if p == WSC.LABEL_POSSIBLY:
+                url = 'https://en.wikipedia.org/w/api.php?' \
+                      'format=json&action=query&prop=extracts&exlimit=max&' \
+                      'explaintext&titles='\
+                      + urllib.parse.quote_plus(row['search_results.title']) \
+                      + '&redirects='
+                yield Request(url, callback=self.parse_wiki_article_prof,
+                              meta={**response.meta,
+                                    'instructor': instructor,
+                                    'class_listing': cls,
+                                    'wiki_title': row['search_results.title']})
 
     # load the entire article from wikipedia
     def parse_wiki_article_prof(self, response):
+        cls = self._get_class_listing(response)
         instructor = response.meta.get('instructor')
-        page = remove_tags(response.body_as_unicode()).upper()
+
+        json_response = json.loads(response.body_as_unicode())
+        pages = json_response['query']['pages']
+        page = next(iter(pages.values()))
 
         yield WikipediaInstructorPotentialArticle(
             name=instructor,
-            wikipedia_title=response.meta.get('wiki_title'),
-            wikipedia_raw_page=response.body_as_unicode())
-
-        if "COLUMBIA UNIVERSITY" in page:
-            yield WikipediaInstructorArticle(
-                name=instructor,
-                wikipedia_title=response.meta.get('wiki_title'))
-        else:
-            logger.info("WIKI: Rejecting article '%s'. Not linked to professor: %s",
-                        response.meta.get('wiki_title'), instructor)
+            class_listing=cls,
+            wikipedia_title=page['title'],
+            wikipedia_raw_page=page['extract'])

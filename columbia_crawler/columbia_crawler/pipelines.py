@@ -9,7 +9,8 @@ import logging
 from w3lib.html import remove_tags
 
 from columbia_crawler import config
-from columbia_crawler.items import ColumbiaClassListing, ColumbiaDepartmentListing, WikipediaInstructorSearchResults
+from columbia_crawler.items import ColumbiaClassListing, ColumbiaDepartmentListing, WikipediaInstructorSearchResults, \
+    WikipediaInstructorPotentialArticle
 
 logger = logging.getLogger(__name__)
 
@@ -94,12 +95,14 @@ class StoreWikiSearchResultsPipeline(object):
     def open_spider(self, spider):
         os.makedirs(config.DATA_WIKI_DIR, exist_ok=True)
         if config.IN_TEST:
-            self.file = open(config.DATA_WIKI_FILENAME + '.test', 'w')
+            self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME + '.test', 'w')
+            self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME + '.test', 'w')
         else:
-            self.file = open(config.DATA_WIKI_FILENAME, 'w')
+            self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME, 'w')
+            self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME, 'w')
 
     def close_spider(self, spider):
-        self.file.close()
+        self.file_wiki_search.close()
 
     def process_item(self, item, spider):
         if isinstance(item, WikipediaInstructorSearchResults):
@@ -110,4 +113,13 @@ class StoreWikiSearchResultsPipeline(object):
                 'search_results': [{'title': r['title'], 'snippet': remove_tags(r['snippet'])}
                                    for r in item['search_results']]
             })
-            self.file.write(s + '\n')
+            self.file_wiki_search.write(s + '\n')
+
+        if isinstance(item, WikipediaInstructorPotentialArticle):
+            s = json.dumps({
+                'name': item['name'],
+                'department': item['class_listing']['department'],
+                'wiki_title': item['wikipedia_title'],
+                'wiki_page': item['wikipedia_raw_page'],
+            })
+            self.file_wiki_article.write(s + '\n')

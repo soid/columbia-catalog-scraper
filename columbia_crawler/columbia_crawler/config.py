@@ -1,16 +1,18 @@
 import os
 from os.path import dirname, abspath
 
+IN_TEST = os.environ.get('CU_TESTENV')
+
 DATA_DIR = dirname(dirname(dirname(abspath(__file__)))) + "/data"
 DATA_RAW_DIR = DATA_DIR + "/raw"
 
 DATA_WIKI_DIR = DATA_DIR + "/wiki-search"
-DATA_WIKI_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.json'
-DATA_WIKI_TRAIN_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.train.json'
+DATA_WIKI_SEARCH_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.json'
+DATA_WIKI_ARTICLE_FILENAME = DATA_WIKI_DIR + '/instructor-article-results.json'
+DATA_WIKI_SEARCH_TRAIN_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.train.json'
+DATA_WIKI_SEARCH_MODEL_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.model'
 
 TEST_DATA_DIR = dirname(dirname(dirname(abspath(__file__)))) + "/test-data"
-
-IN_TEST = os.environ.get('CU_TESTENV')
 
 
 def get_testcase_dir(testcase: str):

@@ -17,6 +17,7 @@ class CatalogBase:
         return response.meta.get('class_listing',
                                  ColumbiaClassListing(
                                      department_listing=self._get_department_listing(response),
+                                     department='test dep',
                                      instructor="testing instr",
                                      class_id="testing class",
                                      course_descr="test content")

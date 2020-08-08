@@ -10,7 +10,7 @@ import sys
 CRAWLER_DIR = dirname(dirname(abspath(__file__))) + "/columbia_crawler"
 sys.path.insert(0, CRAWLER_DIR)
 from columbia_crawler import config
-from wiki_search_train import WSC
+from lib.models.wiki_search import WSC
 
 import json
 import random
@@ -25,8 +25,8 @@ def colorize(search, text):
     return text
 
 
-data_file = open(config.DATA_WIKI_FILENAME, 'r')
-out_file = open(config.DATA_WIKI_TRAIN_FILENAME, 'a')
+data_file = open(config.DATA_WIKI_SEARCH_FILENAME, 'r')
+out_file = open(config.DATA_WIKI_SEARCH_TRAIN_FILENAME, 'a')
 
 data = []
 line = data_file.readline()
@@ -123,7 +123,7 @@ while True:
 
     if sample % 5 == 0:
         out_file.flush()
-        f = open(config.DATA_WIKI_TRAIN_FILENAME, 'r')
+        f = open(config.DATA_WIKI_SEARCH_TRAIN_FILENAME, 'r')
         i = 0
         l = f.readline()
 
