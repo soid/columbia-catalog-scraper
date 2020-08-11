@@ -119,6 +119,7 @@ class StoreWikiSearchResultsPipeline(object):
             s = json.dumps({
                 'name': item['name'],
                 'department': item['class_listing']['department'],
+                'course_descr': item['class_listing']['course_descr'],
                 'wiki_title': item['wikipedia_title'],
                 'wiki_page': item['wikipedia_raw_page'],
             })

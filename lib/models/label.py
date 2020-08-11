@@ -2,12 +2,15 @@
 
 import json
 import os
-from random import random
-from typing import List
+import random
+from collections import defaultdict
 
 
 class Label:
     def __init__(self, in_filename: str, out_filename: str):
+        self.print_stat_period = 2
+        self.stat = defaultdict(lambda: 0, {})
+
         self.input_filename = in_filename
         self.data_file = open(in_filename, 'r')
         self._load_data()
@@ -19,26 +22,42 @@ class Label:
         self.data = []
         line = self.data_file.readline()
         while line != '':
-            obj = json.loads(line)
-            self.data.append(obj)
+            row = json.loads(line)
+            self.data.append(row)
             line = self.data_file.readline()
+
+    def _load_stat(self):
+        f = open(self.out_filename, 'r')
+        line = f.readline()
+        while line != '':
+            row = json.loads(line)
+            self.update_stat(row)
+            line = f.readline()
+        f.close()
 
     def select_sample(self) -> dict:
         return random.choice(self.data)
 
-    def print_sample(self, row):
+    def print_sample(self, row: dict):
         print(row)
 
-    def print_input_description(self, row):
+    def print_input_description(self, row: dict):
         """ Optionally describe what input is allowed."""
         pass
 
-    def process_input(self, answer_str, row) -> bool:
+    def process_input(self, answer_str: str, row: dict) -> bool:
         row['label'] = answer_str
         return True
 
+    def update_stat(self, row: dict):
+        self.stat['Total samples'] += 1
+
     def print_stat(self):
-        pass
+        os.system('clear')
+        print("Statistics for labeled data:")
+        for name, stat in self.stat.items():
+            print(name + ":", stat)
+        input()
 
     def run(self):
         num = 0
@@ -62,8 +81,9 @@ class Label:
                 if success:
                     break
 
+            self.update_stat(row)
             self.out_file.write(json.dumps(row) + "\n")
 
             # output stat
-            if num % 5 == 0:
+            if num % self.print_stat_period == 0:
                 self.print_stat()

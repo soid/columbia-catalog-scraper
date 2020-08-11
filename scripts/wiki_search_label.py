@@ -26,7 +26,7 @@ class LabelWikiSearch(Label):
                 # select rows with only one search result - those are most likely relevant or possibly relevant
                 return row
 
-    def print_sample(self, row):
+    def print_sample(self, row: dict):
         print("Searching:    Name:         {} ({} results)".format(row['name'], len(row['search_results'])))
         print("              Department:   {}".format(row['department']))
         print("              Course:       {}".format(row['course_descr']))
@@ -39,14 +39,14 @@ class LabelWikiSearch(Label):
             print("    ", colorize(row['name'], sr['snippet']))
             print("\n")
 
-    def print_input_description(self, row):
+    def print_input_description(self, row: dict):
         if len(row['search_results']) > 1:
             print("Relevance?   n - nothing is relevant; %n,%n,%n - possibly relevant (e.g. 1,4,5); "
                   "m%n - match (e.g. m1)")
         else:
             print("Relevance?   n - not relevant; p - possibly relevant; m - match")
 
-    def process_input(self, answer_str, row) -> bool:
+    def process_input(self, answer_str: str, row: dict) -> bool:
         answers = list(map(lambda x: x.strip(), answer_str.split(",")))
 
         # check input

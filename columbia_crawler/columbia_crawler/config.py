@@ -13,6 +13,11 @@ DATA_WIKI_SEARCH_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.json'
 DATA_WIKI_SEARCH_TRAIN_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.train.json'
 DATA_WIKI_SEARCH_MODEL_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.model'
 
+# wikipedia articles classifier
+DATA_WIKI_ARTICLE_FILENAME = DATA_WIKI_DIR + '/instructor-article.json'
+DATA_WIKI_ARTICLE_TRAIN_FILENAME = DATA_WIKI_DIR + '/instructor-article.train.json'
+DATA_WIKI_ARTICLE_MODEL_FILENAME = DATA_WIKI_DIR + '/instructor-article.model'
+
 TEST_DATA_DIR = dirname(dirname(dirname(abspath(__file__)))) + "/test-data"
 
 
