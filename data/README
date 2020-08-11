@@ -6,3 +6,7 @@ Data catalogs description:
 
     raw/{SEMESTER}/{DEPARTMENT CODE}/{TIMESTAMP}.html - department listing
     raw/{SEMESTER}/{DEPARTMENT CODE}/{CLASS CODE}/{TIMESTAMP}.html - class listing
+
+
+    wiki-search -   data sets for training classifiers for linking instructors and their
+                    wikipedia articles.

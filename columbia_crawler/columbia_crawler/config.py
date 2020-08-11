@@ -7,8 +7,9 @@ DATA_DIR = dirname(dirname(dirname(abspath(__file__)))) + "/data"
 DATA_RAW_DIR = DATA_DIR + "/raw"
 
 DATA_WIKI_DIR = DATA_DIR + "/wiki-search"
+
+# wikipedia search classifier
 DATA_WIKI_SEARCH_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.json'
-DATA_WIKI_ARTICLE_FILENAME = DATA_WIKI_DIR + '/instructor-article-results.json'
 DATA_WIKI_SEARCH_TRAIN_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.train.json'
 DATA_WIKI_SEARCH_MODEL_FILENAME = DATA_WIKI_DIR + '/instructor-search-results.model'
 

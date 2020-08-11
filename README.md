@@ -15,6 +15,15 @@ scrapy shell 'https://en.wikipedia.org/w/api.php?action=query&list=search&srsear
 >>> s.text()
 ```
 
+
+## Common tasks
+
+Label/Train Wikipedia search results for searching instructors' articles.
+```
+./run-script.sh scripts/wiki_search_label.py
+./run-script.sh scripts/wiki_search_train.py
+```
+
 ## Tests
 
 ### Updating request data

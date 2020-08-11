@@ -5,125 +5,101 @@
 # Possibly match labels instruct the spider to open the wiki article and decides match / non-match
 # based on the article content.
 
-from os.path import dirname, abspath
-import sys
-CRAWLER_DIR = dirname(dirname(abspath(__file__))) + "/columbia_crawler"
-sys.path.insert(0, CRAWLER_DIR)
-from columbia_crawler import config
-from lib.models.wiki_search import WSC
-
 import json
-import random
 import os
-from termcolor import colored
+import random
+
+from columbia_crawler import config
+from console import colorize
+from lib.models.wiki_search import WSC
+from models.label import Label
 
 
-def colorize(search, text):
-    words = search.split()
-    for w in words:
-        text = text.replace(w, colored(w, 'green'))
-    return text
+class LabelWikiSearch(Label):
+    def select_sample(self) -> dict:
+        while True:
+            row = random.choice(self.data)
+            if random.randint(0, 100) < 10:
+                # chance we take any sample
+                return row
+            if len(row['search_results']) == 1:
+                # select rows with only one search result - those are most likely relevant or possibly relevant
+                return row
 
-
-data_file = open(config.DATA_WIKI_SEARCH_FILENAME, 'r')
-out_file = open(config.DATA_WIKI_SEARCH_TRAIN_FILENAME, 'a')
-
-data = []
-line = data_file.readline()
-while line != '':
-    obj = json.loads(line)
-    data.append(obj)
-    line = data_file.readline()
-
-sample = 0
-while True:
-    sample += 1
-    os.system('clear')
-
-    while True:
-        row = random.choice(data)
-        if random.randint(0, 100) < 10:
-            # chance we take any sample
-            break
-        if len(row['search_results']) == 1:
-            # select rows with only one search result - those are most likely relevant or possibly relevant
-            break
-
-    print("Searching:    Name:         {} ({} results)".format(row['name'], len(row['search_results'])))
-    print("              Department:   {}".format(row['department']))
-    print("              Course:       {}".format(row['course_descr']))
-    print("\n")
-    print("Search results:")
-    for i, sr in enumerate(row['search_results']):
-        print("    {})".format(i))
-        print("    ", colorize(row['name'], sr['title']))
-        print("    ", colorize(row['name'], sr['snippet']))
+    def print_sample(self, row):
+        print("Searching:    Name:         {} ({} results)".format(row['name'], len(row['search_results'])))
+        print("              Department:   {}".format(row['department']))
+        print("              Course:       {}".format(row['course_descr']))
         print("\n")
+        print("Search results:")
 
-    reading = True
+        for i, sr in enumerate(row['search_results']):
+            print("    {})".format(i))
+            print("    ", colorize(row['name'], sr['title']))
+            print("    ", colorize(row['name'], sr['snippet']))
+            print("\n")
 
-    def check_input(condition: bool, msg: str):
-        if condition:
-            print("Error:", msg)
-            raise ValueError("Error:" + msg)
-
-    while reading:
+    def print_input_description(self, row):
         if len(row['search_results']) > 1:
             print("Relevance?   n - nothing is relevant; %n,%n,%n - possibly relevant (e.g. 1,4,5); "
                   "m%n - match (e.g. m1)")
         else:
             print("Relevance?   n - not relevant; p - possibly relevant; m - match")
-        answer_str = input()
+
+    def process_input(self, answer_str, row) -> bool:
         answers = list(map(lambda x: x.strip(), answer_str.split(",")))
-        # validate
-        reading = False
-        a: str
+
+        # check input
         try:
             for a in answers:
                 if a == 'n':
-                    check_input(len(answers) != 1, "can't use n with other answers")
+                    self._check_input(len(answers) != 1, "can't use n with other answers")
                     break
 
                 elif a.isnumeric():
                     i = int(a)
-                    check_input(i < 0 or i >= len(row['search_results']), "incorrect numeric choice:" + a)
+                    self._check_input(i < 0 or i >= len(row['search_results']), "incorrect numeric choice:" + a)
                     row['search_results'][i]['label'] = WSC.LABEL_POSSIBLY
 
                 elif a == 'm':
-                    check_input(len(answers) != 1, "can't use n with other answers")
-                    check_input(len(row['search_results']) > 1,
+                    self._check_input(len(answers) != 1, "can't use n with other answers")
+                    self._check_input(len(row['search_results']) > 1,
                                 "ambiguous match. There should be only one matching result.")
                     row['search_results'][0]['label'] = WSC.LABEL_RELEVANT
 
                 elif a == 'p':
-                    check_input(len(answers) != 1, "can't use n with other answers")
-                    check_input(len(row['search_results']) > 1,
+                    self._check_input(len(answers) != 1, "can't use n with other answers")
+                    self._check_input(len(row['search_results']) > 1,
                                 "ambiguous match. There should be only one matching result.")
                     row['search_results'][0]['label'] = WSC.LABEL_POSSIBLY
 
                 elif a.startswith("m"):
                     choice = a[1:]
-                    check_input(not choice.isnumeric() or int(choice) < 0 or int(choice) >= len(row['search_results']),
+                    self._check_input(not choice.isnumeric() or int(choice) < 0 or int(choice) >= len(row['search_results']),
                                 "incorrect numeric choice:" + choice)
-                    check_input(len(answers) != 1, "can't use n with other answers")
+                    self._check_input(len(answers) != 1, "can't use n with other answers")
                     i = int(choice)
                     row['search_results'][i]['label'] = WSC.LABEL_RELEVANT
 
                 else:
-                    check_input(True, "incorrect answer:" + a)
+                    self._check_input(True, "incorrect answer:" + a)
 
         except ValueError:
-            reading = True
+            return False
 
-    for sr in row['search_results']:
-        if 'label' not in sr:
-            sr['label'] = 0  # irrelevant result
+        for sr in row['search_results']:
+            if 'label' not in sr:
+                sr['label'] = WSC.LABEL_IRRELEVANT
 
-    out_file.write(json.dumps(row) + "\n")
+        return True
 
-    if sample % 5 == 0:
-        out_file.flush()
-        f = open(config.DATA_WIKI_SEARCH_TRAIN_FILENAME, 'r')
+    def _check_input(self, condition: bool, msg: str):
+        if condition:
+            print("Error:", msg)
+            raise ValueError("Error:" + msg)
+
+    def print_stat(self):
+        f = open(self.input_filename, 'r')
         i = 0
         l = f.readline()
 
@@ -154,3 +130,9 @@ while True:
         print("Total not match samples:", count_not_match)
         print("Total labeled total samples:", count_total_samples)
         input()
+
+
+if __name__ == '__main__':
+    labeling = LabelWikiSearch(config.DATA_WIKI_SEARCH_FILENAME,
+                           config.DATA_WIKI_SEARCH_TRAIN_FILENAME)
+    labeling.run()
