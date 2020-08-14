@@ -6,6 +6,7 @@
 # https://docs.scrapy.org/en/latest/topics/items.html
 
 import scrapy
+from w3lib.html import remove_tags
 
 
 class ColumbiaDepartmentListing(scrapy.Item):
@@ -58,12 +59,30 @@ class WikipediaInstructorSearchResults(scrapy.Item):
     class_listing = scrapy.Field()
     search_results = scrapy.Field()  # contains 'title' and 'snippet' fields
 
+    def to_json(self) -> dict:
+        return {
+            'name': self['name'],
+            'course_descr': self['class_listing']['course_descr'],
+            'department': self['class_listing']['department'],
+            'search_results': [{'title': r['title'], 'snippet': remove_tags(r['snippet'])}
+                               for r in self['search_results']]
+        }
+
 
 class WikipediaInstructorPotentialArticle(scrapy.Item):
     name = scrapy.Field()
     class_listing = scrapy.Field()
     wikipedia_title = scrapy.Field()
     wikipedia_raw_page = scrapy.Field()
+
+    def to_json(self) -> dict:
+        return {
+            'name': self['name'],
+            'department': self['class_listing']['department'],
+            'course_descr': self['class_listing']['course_descr'],
+            'wiki_title': self['wikipedia_title'],
+            'wiki_page': self['wikipedia_raw_page'],
+        }
 
 
 class WikipediaInstructorArticle(scrapy.Item):

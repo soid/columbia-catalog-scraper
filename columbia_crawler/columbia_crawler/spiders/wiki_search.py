@@ -6,6 +6,7 @@ from scrapy import Request
 from columbia_crawler.items import WikipediaInstructorSearchResults, WikipediaInstructorPotentialArticle, \
     WikipediaInstructorArticle
 from columbia_crawler.spiders.catalog_base import CatalogBase
+from cu_catalog.models.wiki_article import WikiArticleClassifier
 from cu_catalog.models.wiki_search import WikiSearchClassifier, WSC
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,15 @@ logger = logging.getLogger(__name__)
 class WikiSearch(CatalogBase):
 
     initialized = False  # because scrapy contracts won't call __init__
+
+    def init(self):
+        # this function because Scrapy __init__ in not called for this class for some reason
+        if not WikiSearch.initialized:
+            self.search_clf = WikiSearchClassifier()
+            self.search_clf.load_model()
+            self.article_clf = WikiArticleClassifier()
+            self.article_clf.load_model()
+            WikiSearch.initialized = True
 
     def _follow_search_wikipedia_instructor(self, instructor, class_listing):
         url = 'https://en.wikipedia.org/w/api.php?action=query&list=search&utf8=&format=json&srsearch=' \
@@ -29,10 +39,7 @@ class WikiSearch(CatalogBase):
         @returns items 1 1
         @returns requests 0 0
         """
-        if not WikiSearch.initialized:
-            self.search_clf = WikiSearchClassifier()
-            self.search_clf.load_model()
-            WikiSearch.initialized = True
+        self.init()
 
         cls = self._get_class_listing(response)
         instructor = cls['instructor']
@@ -87,15 +94,32 @@ class WikiSearch(CatalogBase):
 
     # load the entire article from wikipedia
     def parse_wiki_article_prof(self, response):
+        """ Starting with department list, crawl all listings by each department.
+
+        @url https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exlimit=max&explaintext&titles=Caroline+Pafford+Miller&redirects=> (referer: https://en.wikipedia.org/w/api.php?action=query&list=search&utf8=&format=json&srsearch=Columbia+University+intitle%3ACaroline+Miller
+        @returns items 1 1
+        @returns requests 0 0
+        """
+        self.init()
+
         cls = self._get_class_listing(response)
-        instructor = response.meta.get('instructor')
+        # instructor = response.meta.get('instructor')
+        instructor = cls['instructor']
 
         json_response = json.loads(response.body_as_unicode())
         pages = json_response['query']['pages']
         page = next(iter(pages.values()))
 
-        yield WikipediaInstructorPotentialArticle(
+        item = WikipediaInstructorPotentialArticle(
             name=instructor,
             class_listing=cls,
             wikipedia_title=page['title'],
             wikipedia_raw_page=page['extract'])
+        yield item
+
+        rows = [self.article_clf.extract_features2vector(item.to_json())]
+        pred = self.article_clf.predict(rows)
+        if pred == WikiArticleClassifier.LABEL_RELEVANT:
+            yield WikipediaInstructorArticle(
+                name=instructor,
+                wikipedia_title=page['title'])

@@ -10,3 +10,6 @@ Data catalogs description:
 
     wiki-search -   data sets for training classifiers for linking instructors and their
                     wikipedia articles.
+                    *.json - all data
+                    *.train.json - labeled data
+                    *.model - built models from train data

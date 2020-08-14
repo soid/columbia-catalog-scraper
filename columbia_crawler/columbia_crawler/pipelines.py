@@ -6,8 +6,6 @@ import os
 import difflib
 import logging
 
-from w3lib.html import remove_tags
-
 from cu_catalog import config
 from columbia_crawler.items import ColumbiaClassListing, ColumbiaDepartmentListing, WikipediaInstructorSearchResults, \
     WikipediaInstructorPotentialArticle
@@ -106,21 +104,9 @@ class StoreWikiSearchResultsPipeline(object):
 
     def process_item(self, item, spider):
         if isinstance(item, WikipediaInstructorSearchResults):
-            s = json.dumps({
-                'name': item['name'],
-                'course_descr': item['class_listing']['course_descr'],
-                'department': item['class_listing']['department'],
-                'search_results': [{'title': r['title'], 'snippet': remove_tags(r['snippet'])}
-                                   for r in item['search_results']]
-            })
+            s = json.dumps(item.to_json())
             self.file_wiki_search.write(s + '\n')
 
         if isinstance(item, WikipediaInstructorPotentialArticle):
-            s = json.dumps({
-                'name': item['name'],
-                'department': item['class_listing']['department'],
-                'course_descr': item['class_listing']['course_descr'],
-                'wiki_title': item['wikipedia_title'],
-                'wiki_page': item['wikipedia_raw_page'],
-            })
+            s = json.dumps(item.to_json())
             self.file_wiki_article.write(s + '\n')
