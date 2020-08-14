@@ -8,7 +8,7 @@ import logging
 
 from w3lib.html import remove_tags
 
-from columbia_crawler import config
+from cu_catalog import config
 from columbia_crawler.items import ColumbiaClassListing, ColumbiaDepartmentListing, WikipediaInstructorSearchResults, \
     WikipediaInstructorPotentialArticle
 

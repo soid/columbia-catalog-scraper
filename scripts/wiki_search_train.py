@@ -1,6 +1,6 @@
 # Classify wiki search results for which are to match / not-match or needs checking the article text.
 
-from models.wiki_search import WikiSearchClassifier
+from cu_catalog.models.wiki_search import WikiSearchClassifier
 
 if __name__ == '__main__':
     model = WikiSearchClassifier()

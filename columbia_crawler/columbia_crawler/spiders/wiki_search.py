@@ -6,7 +6,7 @@ from scrapy import Request
 from columbia_crawler.items import WikipediaInstructorSearchResults, WikipediaInstructorPotentialArticle, \
     WikipediaInstructorArticle
 from columbia_crawler.spiders.catalog_base import CatalogBase
-from models.wiki_search import WikiSearchClassifier, WSC
+from cu_catalog.models.wiki_search import WikiSearchClassifier, WSC
 
 logger = logging.getLogger(__name__)
 

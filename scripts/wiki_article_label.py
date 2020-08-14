@@ -1,9 +1,9 @@
 # Script for manual classification of wikipedia articles relation to instructors.
 from termcolor import colored
 
-from columbia_crawler import config
-from console import colorize
-from models.label import Label
+from cu_catalog import config
+from cu_catalog.console import colorize
+from cu_catalog.models.label import Label
 
 
 class LabelWikiSearch(Label):

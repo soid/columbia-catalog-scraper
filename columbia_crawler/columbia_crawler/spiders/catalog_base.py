@@ -1,4 +1,4 @@
-from columbia_crawler import config
+from cu_catalog import config
 from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing
 
 

@@ -9,10 +9,10 @@ import json
 import os
 import random
 
-from columbia_crawler import config
-from console import colorize
-from lib.models.wiki_search import WSC
-from models.label import Label
+from cu_catalog import config
+from cu_catalog.console import colorize
+from cu_catalog.models.wiki_search import WSC
+from cu_catalog.models.label import Label
 
 
 class LabelWikiSearch(Label):
@@ -134,5 +134,5 @@ class LabelWikiSearch(Label):
 
 if __name__ == '__main__':
     labeling = LabelWikiSearch(config.DATA_WIKI_SEARCH_FILENAME,
-                           config.DATA_WIKI_SEARCH_TRAIN_FILENAME)
+                               config.DATA_WIKI_SEARCH_TRAIN_FILENAME)
     labeling.run()

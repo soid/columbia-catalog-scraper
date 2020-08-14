@@ -13,7 +13,7 @@ from nltk.stem import PorterStemmer
 import textdistance
 import joblib
 
-from columbia_crawler import config
+from cu_catalog import config
 
 
 class WikiSearchClassifier:
