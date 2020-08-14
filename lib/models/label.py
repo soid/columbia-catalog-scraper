@@ -8,7 +8,7 @@ from collections import defaultdict
 
 class Label:
     def __init__(self, in_filename: str, out_filename: str):
-        self.print_stat_period = 2
+        self.print_stat_period = 5
         self.stat = defaultdict(lambda: 0, {})
 
         self.input_filename = in_filename
@@ -16,6 +16,7 @@ class Label:
         self._load_data()
 
         self.out_filename = out_filename
+        self._load_stat()
         self.out_file = open(out_filename, 'a')
 
     def _load_data(self):

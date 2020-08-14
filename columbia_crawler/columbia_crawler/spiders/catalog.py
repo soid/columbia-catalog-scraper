@@ -81,8 +81,18 @@ class CatalogSpider(scrapy.Spider, WikiSearch):
         # TODO parse the class listing into fields
         class_id = [p for p in response.url.split('/') if len(p) > 0][-1]
 
-        content = [tr.css('td') for tr in response.css('tr')]
-        content = filter(lambda x: len(x) > 1, content)  # non-fields have only 1 td tag
+        content_all = [tr.css('td') for tr in response.css('tr')]
+        content = filter(lambda x: len(x) > 1, content_all)  # non-fields have only 1 td tag
+
+        # get course title: tricky one because there's no much html elements to identify it
+        def _get_course_title():
+            rows_with_1_col = filter(lambda x: len(x) == 1, content_all)
+            fonts = [r.css('font[size*="+2"]::text').getall() for r in rows_with_1_col]
+            lines = [line for lines in fonts for line in lines]
+            if len(lines) > 1:
+                logger.warning("More than one line in identified course title: %s", lines)
+            return lines[0]
+        course_title = _get_course_title()
 
         # parse all fields into a dict
         fields = {field_name.css('::text').get(): field_value for field_name, field_value in content}
@@ -115,6 +125,7 @@ class CatalogSpider(scrapy.Spider, WikiSearch):
         class_listing = ColumbiaClassListing(
             class_id=class_id,
             instructor=instructor,
+            course_title=course_title,
             course_descr=course_descr,
             datetime=datetime_,
             points=points,

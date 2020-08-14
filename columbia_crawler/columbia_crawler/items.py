@@ -26,6 +26,7 @@ class ColumbiaClassListing(scrapy.Item):
     class_id = scrapy.Field()
 
     instructor = scrapy.Field()
+    course_title = scrapy.Field()
     course_descr = scrapy.Field()
     datetime = scrapy.Field()
     points = scrapy.Field()

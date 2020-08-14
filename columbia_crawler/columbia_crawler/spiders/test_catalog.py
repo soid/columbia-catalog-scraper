@@ -122,7 +122,6 @@ class TestCatalogSpider(BetamaxTestCase):
             'http://www.columbia.edu//cu/bulletin/uwb/subj/PHYS/X2020-20201-001/',
             'http://www.columbia.edu//cu/bulletin/uwb/subj/JPNS/W4008-20201-001/',
             'http://www.columbia.edu//cu/bulletin/uwb/subj/OCCT/M8106-20202-006/',
-            'http://www.columbia.edu//cu/bulletin/uwb/subj/RELI/S2305-20202-002/',
             'http://www.columbia.edu//cu/bulletin/uwb/subj/PHED/C1001-20203-046/',
             'http://www.columbia.edu//cu/bulletin/uwb/subj/ENGI/E5009-20203-031/',
             'http://www.columbia.edu//cu/bulletin/uwb/subj/SCNC/C1100-20201-011/',
@@ -155,23 +154,25 @@ class TestCatalogSpider(BetamaxTestCase):
     def test_parse_class_instructor(self):
         instructors = []
         for url in TestCatalogSpider.test_class_urls:
-            # print('Testing URL:', url)
+            print('Testing URL:', url)
             results = self._get_class_listing(url)
             self.assertGreater(len(results), 0)
             result = [r for r in results if type(r) == ColumbiaClassListing][0]
             instructors.append(result['instructor'])
-        self.assertEqual(instructors, ['Julia Doe', 'Tovah Klein', 'Kristie Schlauraff', 'Nancy Worman', 'Michael S Paulson',
-                               None, 'Rob Gebeloff', 'Adam H Cannon', 'Gareth Williams', 'Michael C Beckley', None,
-                               'Daniel Esposito', None, None, 'Robert A Cook', 'Arthur Kuflik', 'Abdul Nanji',
-                               'Assaf Zeevi', 'Naama Harel', 'Peter Platt', 'Stephane Goldsand', "Robert G O'Meally",
-                               'Don Waisanen', 'John Glendinning', 'Rachel P Finn-Lohmann', 'David Bolt', None, None,
-                               'Maribeth L Massie', 'Dawn Nilsen', 'Janna Levin', 'David B Lurie', 'Dawn Nilsen', None,
-                               None, 'Hyoseon Lee', 'Caroline W Leland', 'Sharon Fogarty', 'Elizabeth Cook',
-                               'John Wright', 'Rachel McDermott', None, 'Nancy Worman', None, 'Emlyn W Hughes',
-                               'Michael S Paulson', 'Maura L Spiegel', 'Geraldine Downey', None, 'James Teherani',
-                               'Virginia Page Fortna', 'Monette Zard', 'Arthur Langer', 'Alberto Rodriguez',
-                               'Andreas Hielscher', 'Lindy Roy', 'Jeanne K Lambert', 'Rosalind Morris',
-                               'W. Bentley Macleod', 'Ericka Hart', 'Gail E Kaiser'])
+        print(instructors)
+        self.assertEqual(instructors, ['Julia Doe', 'Tovah Klein', 'Kristie Schlauraff', 'Nancy Worman',
+                        'Michael S Paulson', None, 'Rob Gebeloff', 'Adam H Cannon', 'Gareth Williams',
+                        'Michael C Beckley', None, 'Daniel Esposito', None, None, 'Robert A Cook',
+                        'Arthur Kuflik', 'Abdul Nanji', 'Assaf Zeevi', 'Naama Harel', 'Peter Platt',
+                        'Stephane Goldsand', "Robert G O'Meally", 'Don Waisanen', 'John Glendinning',
+                        'Rachel P Finn-Lohmann', 'David Bolt', None, None,
+                        'Maribeth L Massie', 'Dawn Nilsen', 'Janna Levin', 'David B Lurie', 'Dawn Nilsen',
+                        None, 'Hyoseon Lee', 'Caroline W Leland', 'Sharon Fogarty', 'Elizabeth Cook',
+                        'John Wright', 'Rachel McDermott', None, 'Nancy Worman', None, 'Emlyn W Hughes',
+                        'Michael S Paulson', 'Maura L Spiegel', 'Geraldine Downey', None, 'James Teherani',
+                        'Virginia Page Fortna', 'Monette Zard', 'Arthur Langer', 'Alberto Rodriguez',
+                        'Andreas Hielscher', 'Lindy Roy', 'Jeanne K Lambert', 'Rosalind Morris',
+                        'W. Bentley Macleod', 'Ericka Hart', 'Gail E Kaiser'])
 
     def test_parse_culpa_instructor(self):
         catalog = CatalogSpider()
