@@ -4,8 +4,7 @@ import urllib
 from scrapy import Request
 
 from columbia_crawler.items import WikipediaInstructorSearchResults, WikipediaInstructorPotentialArticle, \
-    WikipediaInstructorArticle
-from columbia_crawler.spiders.catalog_base import CatalogBase
+    WikipediaInstructorArticle, ColumbiaClassListing
 from cu_catalog.models.wiki_article import WikiArticleClassifier
 from cu_catalog.models.wiki_search import WikiSearchClassifier, WSC
 
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 # Functions related to searching instructors wikipedia profiles
-class WikiSearch(CatalogBase):
+class WikiSearch:
 
     initialized = False  # because scrapy contracts won't call __init__
 
@@ -41,7 +40,7 @@ class WikiSearch(CatalogBase):
         """
         self.init()
 
-        cls = self._get_class_listing(response)
+        cls = ColumbiaClassListing.get_from_response_meta(response)
         instructor = cls['instructor']
         json_response = json.loads(response.body_as_unicode())
         search = json_response['query']['search']
@@ -102,7 +101,7 @@ class WikiSearch(CatalogBase):
         """
         self.init()
 
-        cls = self._get_class_listing(response)
+        cls = ColumbiaClassListing.get_from_response_meta(response)
         # instructor = response.meta.get('instructor')
         instructor = cls['instructor']
 

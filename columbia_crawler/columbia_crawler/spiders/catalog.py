@@ -77,72 +77,17 @@ class CatalogSpider(scrapy.Spider, WikiSearch):
         @returns requests 2 2
         """
         logger.info('Parsing class from department %s URL=%s Status=%d',
-                    self._get_department_listing(response)['department_code'], response.url, response.status)
-        # TODO parse the class listing into fields
-        class_id = [p for p in response.url.split('/') if len(p) > 0][-1]
+                    ColumbiaDepartmentListing.get_from_response_meta(response)['department_code'],
+                    response.url, response.status)
 
-        content_all = [tr.css('td') for tr in response.css('tr')]
-        content = filter(lambda x: len(x) > 1, content_all)  # non-fields have only 1 td tag
-
-        # get course title: tricky one because there's no much html elements to identify it
-        def _get_course_title():
-            rows_with_1_col = filter(lambda x: len(x) == 1, content_all)
-            fonts = [r.css('font[size*="+2"]::text').getall() for r in rows_with_1_col]
-            lines = [line for lines in fonts for line in lines]
-            if len(lines) > 1:
-                logger.warning("More than one line in identified course title: %s", lines)
-            return lines[0]
-        course_title = _get_course_title()
-
-        # parse all fields into a dict
-        fields = {field_name.css('::text').get(): field_value for field_name, field_value in content}
-
-        # Parse fields
-        def _get_field(field_name, first_line_only=False):
-            if field_name in fields:
-                v = fields[field_name].css('::text')
-                return v.get() if first_line_only else "\n".join(v.getall())
-
-        instructor = _get_field('Instructor', first_line_only=True)
-        if instructor:
-            instructor = re.sub(r'[\s-]+$', '', instructor)  # clean up
-
-        # TODO date &time
-        datetime_ = None
-
-        open_to = _get_field("Open To")
-        if open_to:
-            open_to = [s.strip() for s in open_to.split(',')]
-
-        course_descr = _get_field("Course Description")
-        points = _get_field("Points")
-        class_type = _get_field("Type")
-        method_of_instruction = _get_field("Method of Instruction")
-        department = _get_field("Department")
-        call_number = _get_field("Call Number")
-        campus = _get_field("Campus")
-
-        class_listing = ColumbiaClassListing(
-            class_id=class_id,
-            instructor=instructor,
-            course_title=course_title,
-            course_descr=course_descr,
-            datetime=datetime_,
-            points=points,
-            type=class_type,
-            department=department,
-            call_number=call_number,
-            open_to=open_to,
-            campus=campus,
-            method_of_instruction=method_of_instruction,
-            department_listing=self._get_department_listing(response),
-            raw_content=response.body_as_unicode()
-        )
+        class_listing = ColumbiaClassListing.get_from_response(response)
         yield class_listing
 
-        if instructor:
-            yield self._follow_culpa_instructor(instructor, self._get_department_listing(response))
-            yield self._follow_search_wikipedia_instructor(instructor, class_listing)
+        if class_listing['instructor']:
+            yield self._follow_culpa_instructor(class_listing['instructor'],
+                                                ColumbiaDepartmentListing.get_from_response_meta(response))
+            yield self._follow_search_wikipedia_instructor(class_listing['instructor'], 
+                                                           class_listing)
 
     # Parsing CULPA instructors
 
@@ -160,7 +105,7 @@ class CatalogSpider(scrapy.Spider, WikiSearch):
             if len(found) > 1:
                 logger.warning("More than 1 result for '%s' from '%s' on CULPA",
                                response.meta.get('instructor'),
-                               self._get_department_listing(response)['department_code'])
+                               ColumbiaDepartmentListing.get_from_response_meta(response)['department_code'])
             link = found.css('a::attr(href)').get()
             url = 'http://culpa.info' + link
             nugget = found.css('img.nugget::attr(alt)').get()
