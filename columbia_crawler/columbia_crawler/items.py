@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import List
 
 import scrapy
 from scrapy.http import TextResponse
@@ -48,6 +49,7 @@ class ColumbiaClassListing(scrapy.Item):
     instructor = scrapy.Field()
     course_title = scrapy.Field()
     course_descr = scrapy.Field()
+    prerequisites = scrapy.Field()
     scheduled_days = scrapy.Field()
     scheduled_time = scrapy.Field()
     location = scrapy.Field()
@@ -82,6 +84,9 @@ class ColumbiaClassListing(scrapy.Item):
             self.course_title = self._get_course_title()
 
             # schedule
+            self.scheduled_days = None
+            self.scheduled_time = None
+            self.location = None
             date_and_location = self._get_field('Day & Time')
             if date_and_location:
                 tmp = date_and_location.split("\n")  # e.g.: TR 4:10pm-5:25pm\n825 Seeley W. Mudd Building
@@ -96,6 +101,9 @@ class ColumbiaClassListing(scrapy.Item):
                 self.open_to = [s.strip() for s in self.open_to.split(',')]
 
             self.course_descr = self._get_field("Course Description")
+            self.prerequisites = []
+            if self.course_descr:
+                self.prerequisites = ColumbiaClassListing.get_prerequisites(self.course_descr)
             self.points = self._get_field("Points")
             self.class_type = self._get_field("Type")
             self.method_of_instruction = self._get_field("Method of Instruction")
@@ -116,6 +124,46 @@ class ColumbiaClassListing(scrapy.Item):
                 logger.warning("More than one line in identified course title: %s", lines)
             return lines[0]
 
+    PREREQ_PATTERN = re.compile(r'([A-Z]{4} [A-Z][A-Z]?[0-9]{4}|[A-Z][A-Z]?[0-9]{4}|[oO][rR]|[aA][nN][dD])')
+
+    @staticmethod
+    def get_prerequisites(course_descr: str) -> List[List[str]]:
+        """Returns a list of prerequisites from a course description as a list of class codes.
+        The list is conjunction of other lists that contain a disjunction of classes.
+        E.g. [['A', 'B'], ['C'], ['D']] means (A or B) and C and D.
+
+        >>> course_descr = "Prerequisites: (COMS W3134) or (COMS W3137) C programming language and "\
+        "Unix systems programming. Also covers Git, Make, TCP/IP networking basics, C++ fundamentals."
+        >>> ColumbiaClassListing.get_prerequisites(course_descr)
+        [['COMS W3134', 'COMS W3137']]
+        >>> course_descr = "Prerequisites: (COMS W3134) and (COMS W3137) blah blah blah"
+        >>> ColumbiaClassListing.get_prerequisites(course_descr)
+        [['COMS W3134'], ['COMS W3137']]
+        """
+        matches = ColumbiaClassListing.PREREQ_PATTERN.findall(course_descr)
+
+        prereqs = []
+        mode = "and"
+        for m in matches:
+            if m.lower() == "or" and len(prereqs) > 0:
+                mode = "or"
+            elif m.lower() == "and":
+                mode = "and"
+            else:
+                if mode == "and":
+                    if m.lower() != 'and' and m.lower() != 'or':
+                        prereqs.append([m])
+                        mode = "and"
+                else:
+                    last = prereqs[-1]
+                    if type(last) == list:
+                        last.append(m)
+                    else:
+                        prereqs[-1] = [prereqs[-1], m]
+                    mode = "and"
+
+        return prereqs
+
     @staticmethod
     def get_from_response(response: TextResponse) -> ColumbiaClassListing:
         # parse the class listing into fields
@@ -126,6 +174,7 @@ class ColumbiaClassListing(scrapy.Item):
             instructor=class_parser.instructor,
             course_title=class_parser.course_title,
             course_descr=class_parser.course_descr,
+            prerequisites=class_parser.prerequisites,
             scheduled_days=class_parser.scheduled_days,
             scheduled_time=class_parser.scheduled_time,
             location=class_parser.location,

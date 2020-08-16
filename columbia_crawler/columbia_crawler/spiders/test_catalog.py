@@ -61,8 +61,8 @@ class TestCatalogSpider(BetamaxTestCase):
         result = next(filter(lambda x: type(x) == ColumbiaClassListing, results))
         print(result)
 
-        check_fields = ['instructor', 'course_descr', 'datetime', 'points', 'type',
-                        'department', 'call_number', 'open_to', 'campus',
+        check_fields = ['instructor', 'course_descr', 'scheduled_days', 'scheduled_time', 'location',
+                        'points', 'type', 'department', 'call_number', 'open_to', 'campus',
                         'method_of_instruction', 'department_listing', 'raw_content']
         for f in check_fields:
             self.assertIn(f, result)
