@@ -42,10 +42,16 @@ class CatalogSpider(scrapy.Spider, WikiSearch):
         """
         logger.info('Parsing URL=%s Status=%d', response.url, response.status)
 
+        test_run = getattr(self, 'test_run', False)
+
+        i = 0
         for dep_url in response.css('a::attr(href)').getall():
             if dep_url.startswith("/cu/bulletin/uwb/sel/"):
                 follow_url = self.get_domain(response) + dep_url
                 yield Request(follow_url, callback=self.parse_department_listing)
+                i += 1
+                if test_run and i > 20:
+                    break
 
     def parse_department_listing(self, response):
         logger.info('Parsing department URL=%s Status=%d', response.url, response.status)

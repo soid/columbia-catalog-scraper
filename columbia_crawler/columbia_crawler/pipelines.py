@@ -167,30 +167,37 @@ class StoreClassPipeline(object):
         # store classes
         os.makedirs(config.DATA_CLASSES_DIR, exist_ok=True)
         for term, classes in self.classes_in_term.items():
-            df = pd.DataFrame(classes)
-            df.sort_values(by=['course_code', 'course_title'], inplace=True)
+            def _store_term():
+                df_json = pd.DataFrame(classes)
+                df_json.sort_values(by=['course_code', 'course_title'], inplace=True)
 
-            # reorder columns
-            df = StoreClassPipeline\
-                ._change_cols_order(df, ['course_code', 'course_title', 'course_descr', 'instructor',
-                                         'scheduled_time_start', 'scheduled_time_end'])
-            df['open_to'] = df['open_to'] \
-                .apply(lambda x: "\n".join(sorted(x)) if np.all(pd.notna(x)) else x)
-            df['prerequisites'] = df['prerequisites'] \
-                .apply(lambda prereqs: "\n".join([c for cls in prereqs for c in cls])
-                                       if np.all(pd.notna(prereqs)) else prereqs)
+                # reorder columns
+                df_json = StoreClassPipeline\
+                    ._change_cols_order(df_json, ['course_code', 'course_title', 'course_descr', 'instructor',
+                                                  'scheduled_time_start', 'scheduled_time_end'])
+                df_csv = df_json.copy()
+                df_csv['open_to'] = df_csv['open_to'] \
+                    .apply(lambda x: "\n".join(sorted(x)) if np.all(pd.notna(x)) else x)
+                df_csv['prerequisites'] = df_csv['prerequisites'] \
+                    .apply(lambda prereqs: "\n".join([c for cls in prereqs for c in cls])
+                                           if np.all(pd.notna(prereqs)) else prereqs)
 
-            StoreClassPipeline._store_df(config.DATA_CLASSES_DIR + '/' + term, df)
+                StoreClassPipeline._store_df(config.DATA_CLASSES_DIR + '/' + term, df_json, df_csv)
+            _store_term()
 
         # store instructors
-        os.makedirs(config.DATA_INSTRUCTORS_DIR, exist_ok=True)
-        df = pd.DataFrame(self.instructors.values())
-        df['departments'] = df['departments']\
-            .apply(lambda x: "\n".join(sorted(x)) if pd.notna(x) else x)
-        df['classes'] = df['classes']\
-            .apply(lambda x: ("\n".join([" ".join(cls) for cls in x]) if np.all(pd.notna(x)) else x))
-        df.sort_values(by=['name'], inplace=True)
-        StoreClassPipeline._store_df(config.DATA_INSTRUCTORS_DIR + '/instructors', df)
+        def _store_instructors():
+            os.makedirs(config.DATA_INSTRUCTORS_DIR, exist_ok=True)
+            df_json = pd.DataFrame(self.instructors.values())
+            df_json.sort_values(by=['name'], inplace=True)
+            df_csv = df_json.copy()
+            df_csv['departments'] = df_csv['departments']\
+                .apply(lambda x: "\n".join(sorted(x)) if pd.notna(x) else x)
+            df_csv['classes'] = df_csv['classes']\
+                .apply(lambda x: ("\n".join([" ".join(cls) for cls in x]) if np.all(pd.notna(x)) else x))
+
+            StoreClassPipeline._store_df(config.DATA_INSTRUCTORS_DIR + '/instructors', df_json, df_csv)
+        _store_instructors()
 
     @staticmethod
     def _change_cols_order(df, prioritized_cols):
@@ -202,13 +209,13 @@ class StoreClassPipeline(object):
         return df
 
     @staticmethod
-    def _store_df(filename: str, df: pd.DataFrame):
+    def _store_df(filename: str, df_json: pd.DataFrame, df_csv: pd.DataFrame):
         # store json
         file_json = open(filename + '.json', 'w')
-        df.to_json(path_or_buf=file_json, orient="records", lines=True)
+        df_json.to_json(path_or_buf=file_json, orient="records", lines=True)
         file_json.close()
 
         # store csv
         file_csv = open(filename + '.csv', 'w')
-        df.to_csv(path_or_buf=file_csv, index=False)
+        df_csv.to_csv(path_or_buf=file_csv, index=False)
         file_csv.close()
