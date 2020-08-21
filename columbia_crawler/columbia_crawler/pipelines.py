@@ -5,10 +5,15 @@ import json
 import os
 import difflib
 import logging
+from urllib.parse import quote_plus
+from collections import defaultdict
+import numpy as np
+import pandas as pd
+from typing import Dict, List
 
 from cu_catalog import config
 from columbia_crawler.items import ColumbiaClassListing, ColumbiaDepartmentListing, WikipediaInstructorSearchResults, \
-    WikipediaInstructorPotentialArticle
+    WikipediaInstructorPotentialArticle, WikipediaInstructorArticle, CulpaInstructor
 
 logger = logging.getLogger(__name__)
 
@@ -92,21 +97,118 @@ class StoreRawListeningPipeline(object):
 class StoreWikiSearchResultsPipeline(object):
     def open_spider(self, spider):
         os.makedirs(config.DATA_WIKI_DIR, exist_ok=True)
-        if config.IN_TEST:
-            self.file_wiki_search = open('/tmp/file_wiki_search.test', 'w')
-            self.file_wiki_article = open('/tmp/file_wiki_article.test', 'w')
-        else:
-            self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME, 'w')
-            self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME, 'w')
+        self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME, 'w')
+        self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME, 'w')
 
     def close_spider(self, spider):
         self.file_wiki_search.close()
 
     def process_item(self, item, spider):
         if isinstance(item, WikipediaInstructorSearchResults):
-            s = json.dumps(item.to_json())
+            s = json.dumps(item.to_dict())
             self.file_wiki_search.write(s + '\n')
 
         if isinstance(item, WikipediaInstructorPotentialArticle):
-            s = json.dumps(item.to_json())
+            s = json.dumps(item.to_dict())
             self.file_wiki_article.write(s + '\n')
+        return item
+
+
+class StoreClassPipeline(object):
+    def open_spider(self, spider):
+        self.classes_in_term: Dict[List[object]] = defaultdict(lambda: [], {})
+        self.instructors = defaultdict(lambda: {}, {})
+
+        # mapper from instructor name to classes ref in self.classes_in_term
+        self.instr2classes = defaultdict(lambda: [], {})
+
+    def process_item(self, item, spider):
+        if isinstance(item, ColumbiaClassListing):
+            department_listing = item['department_listing']
+            term = department_listing.term_str()
+            cls = item.to_dict()
+            self.classes_in_term[term].append(cls)
+
+            if item['instructor']:
+                instr = self.instructors[item['instructor']]
+                instr['name'] = item['instructor']
+                instr.setdefault('departments', set())
+                instr['departments'].add(item['department'])
+                instr.setdefault('classes', [])
+                instr['classes'].append([term, item['course_code']])
+
+                self.instr2classes[item['instructor']].append(cls)
+
+        if isinstance(item, WikipediaInstructorArticle):
+            instr = self.instructors[item['name']]
+            instr['name'] = item['name']
+            wikipedia_link = 'https://en.wikipedia.org/wiki/' \
+                             + quote_plus(item['wikipedia_title'].replace(' ', '_'))
+            instr['wikipedia_link'] = wikipedia_link
+
+            for cls in self.instr2classes[instr['name']]:
+                cls['instructor_wikipedia_link'] = wikipedia_link
+
+        if isinstance(item, CulpaInstructor):
+            instr = self.instructors[item['name']]
+            instr['name'] = item['name']
+            instr['culpa_link'] = 'http://culpa.info' + item['link']
+            instr['culpa_nugget'] = item['nugget']
+            instr['culpa_reviews_count'] = int(item['reviews_count'])
+
+            for cls in self.instr2classes[instr['name']]:
+                cls['instructor_culpa_link'] = 'http://culpa.info' + item['link']
+                cls['instructor_culpa_nugget'] = item['nugget']
+                cls['instructor_culpa_reviews_count'] = int(item['reviews_count'])
+
+        return item
+
+    def close_spider(self, spider):
+        # store classes
+        os.makedirs(config.DATA_CLASSES_DIR, exist_ok=True)
+        for term, classes in self.classes_in_term.items():
+            df = pd.DataFrame(classes)
+            df.sort_values(by=['course_code', 'course_title'], inplace=True)
+
+            # reorder columns
+            df = StoreClassPipeline\
+                ._change_cols_order(df, ['course_code', 'course_title', 'course_descr', 'instructor',
+                                         'scheduled_time_start', 'scheduled_time_end'])
+            df['open_to'] = df['open_to'] \
+                .apply(lambda x: "\n".join(sorted(x)) if np.all(pd.notna(x)) else x)
+            df['prerequisites'] = df['prerequisites'] \
+                .apply(lambda prereqs: "\n".join([c for cls in prereqs for c in cls])
+                                       if np.all(pd.notna(prereqs)) else prereqs)
+
+            StoreClassPipeline._store_df(config.DATA_CLASSES_DIR + '/' + term, df)
+
+        # store instructors
+        os.makedirs(config.DATA_INSTRUCTORS_DIR, exist_ok=True)
+        df = pd.DataFrame(self.instructors.values())
+        df['departments'] = df['departments']\
+            .apply(lambda x: "\n".join(sorted(x)) if pd.notna(x) else x)
+        df['classes'] = df['classes']\
+            .apply(lambda x: ("\n".join([" ".join(cls) for cls in x]) if np.all(pd.notna(x)) else x))
+        df.sort_values(by=['name'], inplace=True)
+        StoreClassPipeline._store_df(config.DATA_INSTRUCTORS_DIR + '/instructors', df)
+
+    @staticmethod
+    def _change_cols_order(df, prioritized_cols):
+        cols = sorted(df.columns)
+        for n in prioritized_cols:
+            cols.remove(n)
+        cols = prioritized_cols + cols
+        df = df.reindex(cols, axis=1)
+        return df
+
+    @staticmethod
+    def _store_df(filename: str, df: pd.DataFrame):
+        # store json
+        file_json = open(filename + '.json', 'w')
+        df.to_json(path_or_buf=file_json, orient="records", lines=True)
+        file_json.close()
+
+        # store csv
+        file_csv = open(filename + '.csv', 'w')
+        df.to_csv(path_or_buf=file_csv, index=False)
+        file_csv.close()

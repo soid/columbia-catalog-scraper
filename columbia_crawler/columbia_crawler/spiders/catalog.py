@@ -24,6 +24,7 @@ class CatalogSpider(scrapy.Spider, WikiSearch):
         'ITEM_PIPELINES': {
             'columbia_crawler.pipelines.StoreRawListeningPipeline': 300,
             'columbia_crawler.pipelines.StoreWikiSearchResultsPipeline': 400,
+            'columbia_crawler.pipelines.StoreClassPipeline': 500,
         }
     }
 
@@ -127,7 +128,7 @@ class CatalogSpider(scrapy.Spider, WikiSearch):
         yield CulpaInstructor(
             name=response.meta.get('instructor'),
             link=response.meta.get('link'),
-            reviews_count=len(response.css('div.professor .review')),
+            reviews_count=int(len(response.css('div.professor .review'))),
             nugget=nugget
         )
 

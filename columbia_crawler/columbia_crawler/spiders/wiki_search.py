@@ -116,7 +116,7 @@ class WikiSearch:
             wikipedia_raw_page=page['extract'])
         yield item
 
-        rows = [self.article_clf.extract_features2vector(item.to_json())]
+        rows = [self.article_clf.extract_features2vector(item.to_dict())]
         pred = self.article_clf.predict(rows)
         if pred == WikiArticleClassifier.LABEL_RELEVANT:
             yield WikipediaInstructorArticle(
