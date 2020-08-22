@@ -248,6 +248,10 @@ class WikipediaInstructorSearchResults(scrapy.Item):
     class_listing = scrapy.Field()
     search_results = scrapy.Field()  # contains 'title' and 'snippet' fields
 
+    def __repr__(self):
+        return repr({name: self[name] for name in self.fields.keys()
+                     if name != 'search_results'})
+
     def to_dict(self) -> dict:
         return {
             'name': self['name'],
@@ -263,6 +267,10 @@ class WikipediaInstructorPotentialArticle(scrapy.Item):
     class_listing = scrapy.Field()
     wikipedia_title = scrapy.Field()
     wikipedia_raw_page = scrapy.Field()
+
+    def __repr__(self):
+        return repr({name: self[name] for name in self.fields.keys()
+                     if name != 'wikipedia_raw_page'})
 
     def to_dict(self, exclude_fields=None) -> dict:
         if exclude_fields is None:

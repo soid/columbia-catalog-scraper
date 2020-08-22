@@ -115,6 +115,8 @@ class StoreWikiSearchResultsPipeline(object):
 
 
 class StoreClassPipeline(object):
+    """Store classes and instructors in json and csv formats."""
+
     def open_spider(self, spider):
         self.classes_in_term: Dict[List[object]] = defaultdict(lambda: [], {})
         self.instructors = defaultdict(lambda: {}, {})
@@ -146,9 +148,6 @@ class StoreClassPipeline(object):
                              + quote_plus(item['wikipedia_title'].replace(' ', '_'))
             instr['wikipedia_link'] = wikipedia_link
 
-            for cls in self.instr2classes[instr['name']]:
-                cls['instructor_wikipedia_link'] = wikipedia_link
-
         if isinstance(item, CulpaInstructor):
             instr = self.instructors[item['name']]
             instr['name'] = item['name']
@@ -156,16 +155,27 @@ class StoreClassPipeline(object):
             instr['culpa_nugget'] = item['nugget']
             instr['culpa_reviews_count'] = int(item['reviews_count'])
 
-            for cls in self.instr2classes[instr['name']]:
-                cls['instructor_culpa_link'] = 'http://culpa.info' + item['link']
-                cls['instructor_culpa_nugget'] = item['nugget']
-                cls['instructor_culpa_reviews_count'] = int(item['reviews_count'])
-
         return item
 
     def close_spider(self, spider):
+        self.classes_files = []
+
+        # update instructors info
+        name: str
+        clss: List[Dict]
+        for name, clss in self.instr2classes.items():
+            for cls in clss:
+                instr = self.instructors[name]
+                if 'culpa_link' in instr and instr['culpa_link']:
+                    cls['instructor_culpa_link'] = instr['culpa_link']
+                    cls['instructor_culpa_nugget'] = instr['culpa_nugget']
+                    cls['instructor_culpa_reviews_count'] = int(instr['culpa_reviews_count'])
+                if 'wikipedia_link' in instr and instr['wikipedia_link']:
+                    cls['instructor_wikipedia_link'] = instr['wikipedia_link']
+
         # store classes
         os.makedirs(config.DATA_CLASSES_DIR, exist_ok=True)
+        _to_sorted_list = lambda x: sorted(x) if np.all(pd.notna(x)) else x
         for term, classes in self.classes_in_term.items():
             def _store_term():
                 df_json = pd.DataFrame(classes)
@@ -175,13 +185,17 @@ class StoreClassPipeline(object):
                 df_json = StoreClassPipeline\
                     ._change_cols_order(df_json, ['course_code', 'course_title', 'course_descr', 'instructor',
                                                   'scheduled_time_start', 'scheduled_time_end'])
+                df_json['open_to'] = df_json['open_to'].apply(_to_sorted_list)
+                df_json['prerequisites'] = df_json['prerequisites'].apply(_to_sorted_list)
+
                 df_csv = df_json.copy()
                 df_csv['open_to'] = df_csv['open_to'] \
                     .apply(lambda x: "\n".join(sorted(x)) if np.all(pd.notna(x)) else x)
                 df_csv['prerequisites'] = df_csv['prerequisites'] \
-                    .apply(lambda prereqs: "\n".join([c for cls in prereqs for c in cls])
+                    .apply(lambda prereqs: "\n".join(sorted([c for cls in prereqs for c in cls]))
                                            if np.all(pd.notna(prereqs)) else prereqs)
 
+                self.classes_files.append(config.DATA_CLASSES_DIR + '/' + term)
                 StoreClassPipeline._store_df(config.DATA_CLASSES_DIR + '/' + term, df_json, df_csv)
             _store_term()
 
@@ -190,11 +204,14 @@ class StoreClassPipeline(object):
             os.makedirs(config.DATA_INSTRUCTORS_DIR, exist_ok=True)
             df_json = pd.DataFrame(self.instructors.values())
             df_json.sort_values(by=['name'], inplace=True)
+            df_json['departments'] = df_json['departments'].apply(_to_sorted_list)
+            df_json['classes'] = df_json['classes'].apply(_to_sorted_list)
+
             df_csv = df_json.copy()
             df_csv['departments'] = df_csv['departments']\
-                .apply(lambda x: "\n".join(sorted(x)) if pd.notna(x) else x)
+                .apply(lambda x: "\n".join(sorted(x)) if np.all(pd.notna(x)) else x)
             df_csv['classes'] = df_csv['classes']\
-                .apply(lambda x: ("\n".join([" ".join(cls) for cls in x]) if np.all(pd.notna(x)) else x))
+                .apply(lambda x: ("\n".join([" ".join(sorted(cls)) for cls in x]) if np.all(pd.notna(x)) else x))
 
             StoreClassPipeline._store_df(config.DATA_INSTRUCTORS_DIR + '/instructors', df_json, df_csv)
         _store_instructors()
