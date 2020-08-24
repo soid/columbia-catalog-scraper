@@ -1,19 +1,19 @@
+import logging
 import re
-import urllib
+from urllib.parse import urlparse
 
 import scrapy
 from scrapy import Request
-from urllib.parse import urlparse
-import logging
 
 from columbia_crawler import util
-from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing, CulpaInstructor
+from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing
+from columbia_crawler.spiders.culpa_search import CulpaSearch
 from columbia_crawler.spiders.wiki_search import WikiSearch
 
 logger = logging.getLogger(__name__)
 
 
-class CatalogSpider(scrapy.Spider, WikiSearch):
+class CatalogSpider(scrapy.Spider, WikiSearch, CulpaSearch):
     name = 'catalog'
 
     start_urls = ["http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html"]
@@ -95,47 +95,3 @@ class CatalogSpider(scrapy.Spider, WikiSearch):
                                                 ColumbiaDepartmentListing.get_from_response_meta(response))
             yield self._follow_search_wikipedia_instructor(class_listing['instructor'], 
                                                            class_listing)
-
-    # Parsing CULPA instructors
-
-    def _follow_culpa_instructor(self, instructor, department_listing):
-        url = 'http://culpa.info/search?utf8=✓&search=' \
-              + urllib.parse.quote_plus(instructor) + '&commit=Search'
-        return Request(url, callback=self.parse_culpa_search_instructor,
-                       meta={
-                           'department_listing': department_listing,
-                           'instructor': instructor})
-
-    def parse_culpa_search_instructor(self, response):
-        found = response.css('.search_results .box tr td:first-child')
-        if found:
-            if len(found) > 1:
-                logger.warning("More than 1 result for '%s' from '%s' on CULPA",
-                               response.meta.get('instructor'),
-                               ColumbiaDepartmentListing.get_from_response_meta(response)['department_code'])
-            link = found.css('a::attr(href)').get()
-            url = 'http://culpa.info' + link
-            nugget = found.css('img.nugget::attr(alt)').get()
-            yield Request(url, callback=self.parse_culpa_instructor,
-                          meta={**response.meta,
-                                'link': link,
-                                'nugget': nugget})
-
-    def parse_culpa_instructor(self, response):
-        # Idea: we could classify reviews sentiment if we capture review texts here
-
-        nugget = None
-        if response.meta.get('nugget'):
-            if response.meta.get('nugget').upper().startswith("GOLD"):
-                nugget = CulpaInstructor.NUGGET_GOLD
-            if response.meta.get('nugget').upper().startswith("SILVER"):
-                nugget = CulpaInstructor.NUGGET_SILVER
-
-        yield CulpaInstructor(
-            name=response.meta.get('instructor'),
-            link=response.meta.get('link'),
-            reviews_count=int(len(response.css('div.professor .review'))),
-            nugget=nugget
-        )
-
-    # End of Parsing CULPA instructors
