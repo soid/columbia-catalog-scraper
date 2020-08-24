@@ -124,6 +124,8 @@ class StoreClassPipeline(object):
         # mapper from instructor name to classes ref in self.classes_in_term
         self.instr2classes = defaultdict(lambda: [], {})
 
+        self._read_instructors()
+
     def process_item(self, item, spider):
         if isinstance(item, ColumbiaClassListing):
             department_listing = item['department_listing']
@@ -137,7 +139,9 @@ class StoreClassPipeline(object):
                 instr.setdefault('departments', set())
                 instr['departments'].add(item['department'])
                 instr.setdefault('classes', [])
-                instr['classes'].append([term, item['course_code']])
+                cls_code = [term, item['course_code']]
+                if cls_code not in instr['classes']:
+                    instr['classes'].append(cls_code)
 
                 self.instr2classes[item['instructor']].append(cls)
 
@@ -179,7 +183,7 @@ class StoreClassPipeline(object):
         for term, classes in self.classes_in_term.items():
             def _store_term():
                 df_json = pd.DataFrame(classes)
-                df_json.sort_values(by=['course_code', 'course_title'], inplace=True)
+                df_json.sort_values(by=['course_code', 'course_title', 'call_number'], inplace=True)
 
                 # reorder columns
                 df_json = StoreClassPipeline\
@@ -236,3 +240,13 @@ class StoreClassPipeline(object):
         file_csv = open(filename + '.csv', 'w')
         df_csv.to_csv(path_or_buf=file_csv, index=False)
         file_csv.close()
+
+    def _read_instructors(self):
+        filename = config.DATA_INSTRUCTORS_DIR + '/instructors.json'
+        if os.path.exists(filename):
+            with open(filename, 'r') as f:
+                for line in f:
+                    instr = json.loads(line)
+                    self.instructors[instr['name']] = instr
+                    if instr['departments']:
+                        instr['departments'] = set(instr['departments'])

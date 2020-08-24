@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import random
 import re
 from typing import List
 
@@ -37,7 +38,10 @@ class ColumbiaDepartmentListing(scrapy.Item):
 
     @staticmethod
     def get_test():
-        return get_test_item(ColumbiaDepartmentListing)
+        item = get_test_item(ColumbiaDepartmentListing)
+        item['term_month'] = random.choice(['Fall', 'Spring'])
+        item['term_year'] = random.choice(['1920', '1921'])
+        return item
 
     @staticmethod
     def get_from_response_meta(response) -> ColumbiaDepartmentListing or None:
@@ -56,13 +60,14 @@ class ColumbiaClassListing(scrapy.Item):
     course_title = scrapy.Field()
     course_descr = scrapy.Field()
     prerequisites = scrapy.Field()
+    department = scrapy.Field()
+    department_code = scrapy.Field()
     scheduled_days = scrapy.Field()
     scheduled_time_start = scrapy.Field()
     scheduled_time_end = scrapy.Field()
     location = scrapy.Field()
     points = scrapy.Field()
     type = scrapy.Field()
-    department = scrapy.Field()
     call_number = scrapy.Field()
     open_to = scrapy.Field()
     campus = scrapy.Field()
@@ -80,10 +85,9 @@ class ColumbiaClassListing(scrapy.Item):
     def to_dict(self) -> dict:
         """Converts to dictionary and excludes raw_content field"""
         result = {}
+        exclude_fields = ['raw_content', 'department_listing']
         for name in self.fields.keys():
-            if name == 'department_listing':
-                result['department_code'] = self[name]['department_code']
-            elif name != 'raw_content':
+            if name not in exclude_fields:
                 result[name] = self[name]
         return result
 
@@ -204,13 +208,14 @@ class ColumbiaClassListing(scrapy.Item):
             course_title=class_parser.course_title,
             course_descr=class_parser.course_descr,
             prerequisites=class_parser.prerequisites,
+            department=class_parser.department,
+            department_code=class_parser.department_code,
             scheduled_days=class_parser.scheduled_days,
             scheduled_time_start=class_parser.scheduled_time_start,
             scheduled_time_end=class_parser.scheduled_time_end,
             location=class_parser.location,
             points=class_parser.points,
             type=class_parser.class_type,
-            department=class_parser.department,
             call_number=class_parser.call_number,
             open_to=class_parser.open_to,
             campus=class_parser.campus,
@@ -241,6 +246,13 @@ class CulpaInstructor(scrapy.Item):
 
     NUGGET_GOLD = 'gold'
     NUGGET_SILVER = 'silver'
+
+    @staticmethod
+    def get_test():
+        test_item = get_test_item(CulpaInstructor)
+        test_item['reviews_count'] = random.randint(1, 999)
+        test_item['nugget'] = random.choice([None, CulpaInstructor.NUGGET_GOLD, CulpaInstructor.NUGGET_SILVER])
+        return test_item
 
 
 class WikipediaInstructorSearchResults(scrapy.Item):
@@ -296,6 +308,7 @@ class WikipediaInstructorArticle(scrapy.Item):
 
 def get_test_item(cls):
     d = {}
+    suffix = '_' + str(random.randint(1, 999))
     for name in cls.fields.keys():
-        d[name] = "test " + name
+        d[name] = "test " + name + suffix
     return cls(d)
