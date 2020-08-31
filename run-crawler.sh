@@ -28,9 +28,11 @@ do
             ;;
         t)
             scrapy crawl catalog -a test_run=True
+            exit 0
             ;;
         p)
             scrapy crawl catalog --logfile columbia_crawler.log
+            exit 0
             ;;
         ?)
             usage
@@ -38,3 +40,6 @@ do
             ;;
     esac
 done
+
+usage
+exit 1
