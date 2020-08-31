@@ -7,8 +7,9 @@ IN_TEST = os.environ.get('CU_TESTENV')
 # Read defaults.cfg and optional config.cfg
 conf_parser = configparser.ConfigParser()
 this_dir = dirname(abspath(__file__))
-config_files = [this_dir + '/defaults.cfg',
-                this_dir + '/config.cfg']
+config_files = [this_dir + '/defaults.cfg']
+if not IN_TEST:
+    config_files += [this_dir + '/config.cfg']
 conf_parser.read(config_files)
 config = conf_parser['DEFAULT']
 config['project'] = dirname(dirname(abspath(__file__)))
