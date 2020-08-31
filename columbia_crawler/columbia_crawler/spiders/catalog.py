@@ -38,7 +38,7 @@ class CatalogSpider(scrapy.Spider, WikiSearch, CulpaSearch):
 
         @url http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html
         @returns items 0 0
-        @returns requests 400 500
+        @returns requests 300 500
         """
         logger.info('Parsing URL=%s Status=%d', response.url, response.status)
 
