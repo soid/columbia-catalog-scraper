@@ -1,5 +1,7 @@
 import random
+import shutil
 from unittest import TestCase
+
 import pandas as pd
 from pandas._testing import assert_frame_equal
 
@@ -13,6 +15,10 @@ random.seed(42)
 
 class TestStoreClassPipeline(TestCase):
     def test_pipeline(self):
+        # cleanup
+        shutil.rmtree(config.DATA_INSTRUCTORS_DIR, ignore_errors=True)
+        shutil.rmtree(config.DATA_CLASSES_DIR, ignore_errors=True)
+
         def _run_spider(mock_items):
             spider = CatalogSpider()
             scp = StoreClassPipeline()
