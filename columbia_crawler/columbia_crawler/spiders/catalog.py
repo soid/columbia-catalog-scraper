@@ -9,6 +9,7 @@ from columbia_crawler import util
 from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing
 from columbia_crawler.spiders.culpa_search import CulpaSearch
 from columbia_crawler.spiders.wiki_search import WikiSearch
+from cu_catalog import config
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,7 @@ class CatalogSpider(scrapy.Spider, WikiSearch, CulpaSearch):
     start_urls = ["http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html"]
 
     custom_settings = {
-        'HTTPCACHE_ENABLED': True,
-        # 'HTTPCACHE_ENABLED': False,
+        'HTTPCACHE_ENABLED': config.HTTP_CACHE_ENABLED,
         'ITEM_PIPELINES': {
             'columbia_crawler.pipelines.StoreRawListeningPipeline': 300,
             'columbia_crawler.pipelines.StoreWikiSearchResultsPipeline': 400,

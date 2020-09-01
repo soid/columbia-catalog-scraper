@@ -33,6 +33,8 @@ if IN_TEST:
     DATA_DIR = DATA_DIR_TEST
     config['DATA_DIR'] = DATA_DIR
 
+HTTP_CACHE_ENABLED = config.getboolean('HTTP_CACHE_ENABLED')
+
 # data directories
 DATA_RAW_DIR = config['DATA_RAW_DIR']
 DATA_WIKI_DIR = config['DATA_WIKI_DIR']
