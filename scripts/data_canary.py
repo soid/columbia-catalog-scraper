@@ -1,6 +1,6 @@
 # Validate exported data in:
 #   - data/classes
-#   - data/instructors
+#   - data/instructors (TODO)
 
 from os import listdir
 import unittest
@@ -23,53 +23,53 @@ class CanaryTest(unittest.TestCase):
                 # validate fields
 
                 # course_code
-                self.assertColRegex(df, 'course_code', r'^[\w_]{4} (\w{1,3}\d{2,4}|\dX+)\w?_?$', 100)
+                self.assertColRegex(df, 'course_code', r'^[\w_]{4} (\w{1,3}\d{2,4}|\dX+)\w?_?$', 25)
 
-                self.assertColRegex(df, 'course_title', r'^...+$', 100)
+                self.assertColRegex(df, 'course_title', r'^...+$', 25)
 
-                self.assertColHasUniqueValues(df, 'course_descr', 100)
+                self.assertColHasUniqueValues(df, 'course_descr', 25)
 
-                self.assertColHasUniqueValues(df, 'instructor', 100)
+                self.assertColHasUniqueValues(df, 'instructor', 25)
 
                 # scheduled_time_start and scheduled_time_end
                 for col in ['scheduled_time_start', 'scheduled_time_end']:
-                    self.assertColRegex(df, col, r'^\d{1,2}:\d{2}(am|pm)$', 10, [''])
-                self.assertColRegex(df, 'scheduled_days', r'^(M|T|W|R|F|S|U){1,7}$', 10)
+                    self.assertColRegex(df, col, r'^\d{1,2}:\d{2}(am|pm)$', 2, [''])
+                self.assertColRegex(df, 'scheduled_days', r'^(M|T|W|R|F|S|U){1,7}$', 1)
 
                 # call_number
                 self.assertColType(df, 'call_number', int, 10)
 
                 # campus
                 self.assertColInSet(df, 'campus',
-                                    ['Morningside', 'Barnard College', 'Presbyterian Hospital'], 5)
+                                    ['Morningside', 'Barnard College', 'Presbyterian Hospital'], 1)
 
-                self.assertColRegex(df, 'class_id', r'^[\w\d]{5}-\d{5}-[\w\d]{3}$', 100)
+                self.assertColRegex(df, 'class_id', r'^[\w\d]{5}-\d{5}-[\w\d]{3}$', 25)
 
                 # department
                 self.assertColInSet(df, 'department',
-                                    ['Electrical Engineering', 'Computer Science'], 10)
+                                    ['Electrical Engineering', 'Computer Science', 'Physics'], 1)
                 self.assertColInSet(df, 'department_code',
-                                    ['ANTH', 'COMS', 'PHYS'], 30)
+                                    ['ANTH', 'COMS', 'PHYS', 'HIST', 'POLI', 'RUSS'], 3)
 
-                # instructor_culpa_link
+                # TODO: instructor_culpa_link
 
                 # instructor_culpa_nugget
-                self.assertSetEqual({None, 'gold', 'silver'},
-                                    set(df.instructor_culpa_nugget.unique().tolist()))
+                self.assertColInSet(df, 'instructor_culpa_nugget',
+                                    ['gold', 'silver'], 1)
 
                 self.assertColType(df, 'instructor_culpa_reviews_count', float, 10)
 
-                # instructor_wikipedia_link
-                # link
+                # TODO: instructor_wikipedia_link
+                # TODO: link
 
-                self.assertColInSet(df, 'location', ['To be announced'], 2)
+                self.assertColInSet(df, 'location', ['To be announced'])
 
-                # open_to
-                # self.assertColInSet(df, 'open_to', ['DISCUSSION', 'LECTURE'], 4)
+                # TODO: open_to
+                # self.assertColInSet(df, 'open_to', ['DISCUSSION', 'LECTURE'], 1)
 
                 self.assertColRegex(df, 'points', r'^\d{1,2}(\.\d)?(-\d{1,2}(\.\d)?)?$', 4)
 
-                self.assertColInSet(df, 'type', ['DISCUSSION', 'LECTURE'], 4)
+                self.assertColInSet(df, 'type', ['DISCUSSION', 'LECTURE', 'SEMINAR'], 1)
 
         self.assertGreater(json_files_count, 0)
 
@@ -79,20 +79,32 @@ class CanaryTest(unittest.TestCase):
             self.assertRegex(val, regex, msg)
         self._assertGeneric(df, col, assert_func, min_values, exceptions)
 
-    def assertColInSet(self, df: pd.DataFrame, column: str, expected_values: List[str], min_values: int,
+    def assertColInSet(self, df: pd.DataFrame, column: str, expected_values: List[str],
+                       min_values: int or None = None,
                        exceptions: List[str] or None = None):
+        """expect at least min_values from list expected_values in the column."""
+        if min_values is None:
+            min_values = len(expected_values)
+        assert min_values <= len(expected_values)
+        assert min_values != 0
+
         expected_values_copy = list(expected_values)
-        found_values = set()
+        found_values = {}
+        found_count = 0
 
         def assert_func(val, msg):
-            found_values.add(val)
+            nonlocal found_count
+            found_values[val] = msg
             if val in expected_values_copy:
                 expected_values_copy.remove(val)
+                found_count += 1
 
         self._assertGeneric(df, column, assert_func, min_values, exceptions)
-        self.assertListEqual([], expected_values_copy,
-                             'Not found values in column: {}, file: {}, found values: {}'
-                             .format(column, self.test_file_name, found_values))
+        self.assertGreaterEqual(found_count, min_values,
+                                "Not found at least {} values from the list {} in column: {}, file: {}.\n"
+                                'Found values: {}'
+                                .format(min_values, expected_values, column, self.test_file_name,
+                                        "\n    ".join([k + ": " + v for k, v in found_values.items()])))
 
     def assertColHasUniqueValues(self, df: pd.DataFrame, col: str, min_values: int):
         pass
@@ -115,7 +127,7 @@ class CanaryTest(unittest.TestCase):
                 assert_func(row[column], "in column: '{}' file: '{}' coure_code: '{}' link: '{}'"
                             .format(column, self.test_file_name, row['course_code'], row['link']))
                 count += 1
-        self.assertGreater(count, min_values,
+        self.assertGreaterEqual(count, min_values,
                            "in column: '{}' file: '{}'".format(column, self.test_file_name))
 
 
