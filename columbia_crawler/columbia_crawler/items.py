@@ -55,6 +55,7 @@ class ColumbiaClassListing(scrapy.Item):
     class_id = scrapy.Field()
     link = scrapy.Field()
     course_code = scrapy.Field()
+    section_key = scrapy.Field()
 
     instructor = scrapy.Field()
     course_title = scrapy.Field()
@@ -126,6 +127,8 @@ class ColumbiaClassListing(scrapy.Item):
                 self.scheduled_time_start, self.scheduled_time_end = t.split('-')
 
                 self.location = date_and_location.split("\n")[1]
+
+            self.section_key = self._get_field("Section key")
 
             self.open_to = self._get_field("Open To")
             if self.open_to:
@@ -204,6 +207,7 @@ class ColumbiaClassListing(scrapy.Item):
             class_id=class_parser.class_id,
             link=response.url,
             course_code=class_parser.course_code,
+            section_key=class_parser.section_key,
             instructor=class_parser.instructor,
             course_title=class_parser.course_title,
             course_descr=class_parser.course_descr,
