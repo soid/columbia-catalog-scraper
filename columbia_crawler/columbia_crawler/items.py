@@ -59,6 +59,7 @@ class ColumbiaClassListing(scrapy.Item):
 
     instructor = scrapy.Field()
     course_title = scrapy.Field()
+    course_subtitle = scrapy.Field()
     course_descr = scrapy.Field()
     prerequisites = scrapy.Field()
     department = scrapy.Field()
@@ -112,6 +113,7 @@ class ColumbiaClassListing(scrapy.Item):
             if self.instructor:
                 self.instructor = re.sub(r'[\s-]+$', '', self.instructor)  # clean up
             self.course_title = self._get_course_title()
+            self.course_subtitle = self._get_course_subtitle()
 
             # schedule
             self.scheduled_days = None
@@ -156,7 +158,16 @@ class ColumbiaClassListing(scrapy.Item):
             lines = [line for lines in fonts for line in lines]
             if len(lines) > 1:
                 logger.warning("More than one line in identified course title: %s", lines)
-            return lines[0]
+            course_title = lines[0]
+            return course_title
+
+        def _get_course_subtitle(self):
+            rows_with_1_col = filter(lambda x: len(x) == 1, self.content_all)
+            itag = [r.css('i::text').getall() for r in rows_with_1_col]
+            sub_lines = [line for lines in itag for line in lines]
+            if len(sub_lines) > 0:
+                return sub_lines[0]
+            return None
 
     PREREQ_PATTERN = re.compile(r'([A-Z]{4} [A-Z][A-Z]?[0-9]{4}|[A-Z][A-Z]?[0-9]{4}|[oO][rR]|[aA][nN][dD])')
 
@@ -210,6 +221,7 @@ class ColumbiaClassListing(scrapy.Item):
             section_key=class_parser.section_key,
             instructor=class_parser.instructor,
             course_title=class_parser.course_title,
+            course_subtitle=class_parser.course_subtitle,
             course_descr=class_parser.course_descr,
             prerequisites=class_parser.prerequisites,
             department=class_parser.department,
