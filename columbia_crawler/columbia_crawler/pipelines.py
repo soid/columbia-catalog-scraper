@@ -183,6 +183,26 @@ class StoreClassPipeline(object):
         for term, classes in self.classes_in_term.items():
             def _store_term():
                 df_json = pd.DataFrame(classes)
+
+                # merge old and new: if department is absent in new, don't remove it, keep old
+                def _merge():
+                    nonlocal df_json
+                    df_old_json = self._read_term(term)
+                    if df_old_json is None:
+                        return
+                    merge_codes = []
+                    for dep_code in df_old_json.department_code.unique().tolist():
+                        if dep_code not in df_json['department_code'].values:
+                            # merge dep_code from old file
+                            merge_codes.append(dep_code)
+                    if len(merge_codes) > 0:
+                        df_json = pd.concat([
+                            df_json,
+                            df_old_json.loc[df_old_json['department_code'].isin(merge_codes)]
+                        ]).reset_index(drop=True)
+                _merge()
+
+                # sort rows
                 df_json.sort_values(by=['course_code', 'course_title', 'call_number'], inplace=True)
 
                 # reorder columns
@@ -250,3 +270,10 @@ class StoreClassPipeline(object):
                     self.instructors[instr['name']] = instr
                     if instr['departments']:
                         instr['departments'] = set(instr['departments'])
+
+    def _read_term(self, term):
+        filename = config.DATA_CLASSES_DIR + '/' + term + '.json'
+        if not os.path.exists(filename):
+            return
+        df = pd.read_json(filename, lines=True)
+        return df
