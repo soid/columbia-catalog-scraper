@@ -13,7 +13,7 @@ Run scrapy crawler.
 
 OPTIONS:
    -h      Show this message
-   -t      Test run
+   -t      Test run (limited number of downloads)
    -p      Production run
 EOF
 }

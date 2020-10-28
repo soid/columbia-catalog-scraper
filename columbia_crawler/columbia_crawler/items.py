@@ -99,7 +99,7 @@ class ColumbiaClassListing(scrapy.Item):
 
             # parse the class table
             self.content_all = [tr.css('td') for tr in response.css('tr')]
-            self.content = filter(lambda x: len(x) > 1, self.content_all)  # non-fields have only 1 td tag
+            self.content = filter(lambda x: len(x) == 2, self.content_all)  # non-fields have only 1 td tag
             self.fields = {field_name.css('::text').get(): field_value
                            for field_name, field_value in self.content}
 
@@ -158,6 +158,8 @@ class ColumbiaClassListing(scrapy.Item):
             lines = [line for lines in fonts for line in lines]
             if len(lines) > 1:
                 logger.warning("More than one line in identified course title: %s", lines)
+            if len(lines) == 0:
+                return ''  # no title
             course_title = lines[0]
             return course_title
 

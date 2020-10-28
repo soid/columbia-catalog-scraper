@@ -45,8 +45,9 @@ class CatalogSpider(scrapy.Spider, WikiSearch, CulpaSearch):
         test_run = getattr(self, 'test_run', False)
 
         i = 0
+        dep_url: str
         for dep_url in response.css('a::attr(href)').getall():
-            if dep_url.startswith("/cu/bulletin/uwb/sel/"):
+            if "/cu/bulletin/uwb/sel/" in dep_url:
                 follow_url = self.get_domain(response) + dep_url
                 yield Request(follow_url, callback=self.parse_department_listing)
                 i += 1
@@ -57,7 +58,7 @@ class CatalogSpider(scrapy.Spider, WikiSearch, CulpaSearch):
         logger.info('Parsing department URL=%s Status=%d', response.url, response.status)
         filename = response.url.split('/')[-1]
         filename2 = filename.split('.')[0]  # no .html extension
-        department_code, term_url = filename2.split('_')
+        department_code, term_url = filename2.rsplit('_', maxsplit=1)
         term_month, term_year = util.split_term(term_url)
 
         department_listing = ColumbiaDepartmentListing(
@@ -69,7 +70,7 @@ class CatalogSpider(scrapy.Spider, WikiSearch, CulpaSearch):
         yield department_listing
 
         for class_url in response.css('a::attr(href)').getall():
-            if class_url.startswith("/cu/bulletin/uwb/subj/"):
+            if "/cu/bulletin/uwb/subj/" in class_url:
                 follow_url = self.get_domain(response) + class_url
                 yield Request(follow_url, callback=self.parse_class_listing,
                               meta={
