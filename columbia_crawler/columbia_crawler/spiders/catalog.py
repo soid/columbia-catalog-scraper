@@ -19,6 +19,47 @@ class CatalogSpider(scrapy.Spider, WikiSearch, CulpaSearch):
 
     start_urls = ["http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html"]
 
+    # Uncomment to downloaded archived catalogs from archive.org
+    # start_urls = [
+    #     # Mar 2017
+    #     'https://web.archive.org/web/20170301003423fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    #     # Oct 2017
+    #     'https://web.archive.org/web/20171003231917fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    #     # Jun 2018
+    #     'https://web.archive.org/web/20180628023453fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    #     # Apr 2019
+    #     'https://web.archive.org/web/20190408145030/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    #     # Oct 2019
+    #     'https://web.archive.org/web/20191007051431/http://www.columbia.edu/cu/bulletin/sel/departments.html',
+    # ]
+
+    [
+    # +Mar 2016
+        "https://web.archive.org/web/20160211212917fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html"
+    # +Jun 2016
+        'https://web.archive.org/web/20160702082023fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    # Oct 2016
+        'https://web.archive.org/web/20160930205946fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    # Mar 2017
+        'https://web.archive.org/web/20170301003423fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    # -Jun 2017
+        'https://web.archive.org/web/20170628081511fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    # Oct 2017
+        'https://web.archive.org/web/20171003231917fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    # -Mar 2018
+        'https://web.archive.org/web/20180227131253fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    # Jun 2018
+        'https://web.archive.org/web/20180628023453fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    # -Oct 2018
+        'https://web.archive.org/web/20180915073852fw_/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    # Apr 2019
+        'https://web.archive.org/web/20190408145030/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    # Jun 2019
+        'https://web.archive.org/web/20190622084822/http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html',
+    # Oct 2019
+        'https://web.archive.org/web/20191007051431/http://www.columbia.edu/cu/bulletin/sel/departments.html',
+    ]
+
     custom_settings = {
         'HTTPCACHE_ENABLED': config.HTTP_CACHE_ENABLED,
         'ITEM_PIPELINES': {
