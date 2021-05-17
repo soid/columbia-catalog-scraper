@@ -17,6 +17,7 @@ config['project'] = dirname(dirname(abspath(__file__)))
 
 # read config values
 DATA_DIR = config['DATA_DIR']
+LOG_LEVEL = config['LOG_LEVEL']
 
 if IN_TEST:
     # create temporary data directory for test

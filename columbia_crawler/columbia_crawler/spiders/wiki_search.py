@@ -24,6 +24,7 @@ class WikiSearch(scrapy.Spider):
 
     custom_settings = {
         'HTTPCACHE_ENABLED': config.HTTP_CACHE_ENABLED,
+        'LOG_LEVEL': config.LOG_LEVEL,
         'ITEM_PIPELINES': {
             'columbia_crawler.pipelines.StoreWikiSearchResultsPipeline': 400,
         }
@@ -80,7 +81,7 @@ class WikiSearch(scrapy.Spider):
                              'department': department})
 
     def close(self, reason):
-        if self.df_internal:
+        if self.df_internal is not None:
             logger.info("Started updating internal db")
             os.makedirs(config.DATA_INTERNAL_DB_DIR, exist_ok=True)
             file_json = open(config.DATA_INSTRUCTORS_INTERNAL_INFO_JSON, 'w')
