@@ -127,8 +127,9 @@ class ColumbiaClassListing(scrapy.Item):
                 self.scheduled_days = date_and_time[0]  # e.g. TR
                 t = date_and_time[1]  # e.g. 4:10pm-5:25pm
                 self.scheduled_time_start, self.scheduled_time_end = t.split('-')
-
-                self.location = date_and_location.split("\n")[1]
+                self.location = None
+                if len(tmp)>1:
+                    self.location = tmp[1]
 
             self.section_key = self._get_field("Section key")
 
@@ -275,7 +276,7 @@ class CulpaInstructor(scrapy.Item):
 
 class WikipediaInstructorSearchResults(scrapy.Item):
     name = scrapy.Field()
-    class_listing = scrapy.Field()
+    department = scrapy.Field()
     search_results = scrapy.Field()  # contains 'title' and 'snippet' fields
 
     def __repr__(self):
@@ -285,8 +286,8 @@ class WikipediaInstructorSearchResults(scrapy.Item):
     def to_dict(self) -> dict:
         return {
             'name': self['name'],
-            'course_descr': self['class_listing']['course_descr'],
-            'department': self['class_listing']['department'],
+            'course_descr': '',  # TODO: add course info
+            'department': self['department'],
             'search_results': [{'title': r['title'], 'snippet': remove_tags(r['snippet'])}
                                for r in self['search_results']]
         }
@@ -294,7 +295,7 @@ class WikipediaInstructorSearchResults(scrapy.Item):
 
 class WikipediaInstructorPotentialArticle(scrapy.Item):
     name = scrapy.Field()
-    class_listing = scrapy.Field()
+    department = scrapy.Field()
     wikipedia_title = scrapy.Field()
     wikipedia_raw_page = scrapy.Field()
 
@@ -307,8 +308,8 @@ class WikipediaInstructorPotentialArticle(scrapy.Item):
             exclude_fields = []
         result = {
             'name': self['name'],
-            'department': self['class_listing']['department'],
-            'course_descr': self['class_listing']['course_descr'],
+            'department': self['department'],
+            'course_descr': '',  # TODO: add courses description (taught by instructor)
             'wiki_title': self['wikipedia_title'],
             'wiki_page': self['wikipedia_raw_page'],
         }
@@ -317,6 +318,7 @@ class WikipediaInstructorPotentialArticle(scrapy.Item):
 
 class WikipediaInstructorArticle(scrapy.Item):
     name = scrapy.Field()
+    department = scrapy.Field()
     wikipedia_title = scrapy.Field()
 
     @staticmethod

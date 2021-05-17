@@ -8,13 +8,12 @@ from scrapy import Request
 from columbia_crawler import util
 from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing
 from columbia_crawler.spiders.culpa_search import CulpaSearch
-from columbia_crawler.spiders.wiki_search import WikiSearch
 from cu_catalog import config
 
 logger = logging.getLogger(__name__)
 
 
-class CatalogSpider(scrapy.Spider, WikiSearch, CulpaSearch):
+class CatalogSpider(scrapy.Spider, CulpaSearch):
     name = 'catalog'
 
     start_urls = ["http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html"]
@@ -64,7 +63,6 @@ class CatalogSpider(scrapy.Spider, WikiSearch, CulpaSearch):
         'HTTPCACHE_ENABLED': config.HTTP_CACHE_ENABLED,
         'ITEM_PIPELINES': {
             'columbia_crawler.pipelines.StoreRawListeningPipeline': 300,
-            'columbia_crawler.pipelines.StoreWikiSearchResultsPipeline': 400,
             'columbia_crawler.pipelines.StoreClassPipeline': 500,
         }
     }
@@ -135,5 +133,3 @@ class CatalogSpider(scrapy.Spider, WikiSearch, CulpaSearch):
         if class_listing['instructor']:
             yield self._follow_culpa_instructor(class_listing['instructor'],
                                                 ColumbiaDepartmentListing.get_from_response_meta(response))
-            yield self._follow_search_wikipedia_instructor(class_listing['instructor'], 
-                                                           class_listing)

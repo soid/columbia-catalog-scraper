@@ -28,10 +28,12 @@ do
             ;;
         t)
             scrapy crawl catalog -a test_run=True
+            scrapy crawl wiki_search -a test_run=True
             exit 0
             ;;
         p)
             scrapy crawl catalog --logfile columbia_crawler.log
+            scrapy crawl wiki_search --logfile columbia_crawler.log
             exit 0
             ;;
         ?)

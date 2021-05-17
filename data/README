@@ -13,3 +13,5 @@ Data catalogs description:
                     *.json - all data
                     *.train.json - labeled data
                     *.model - built models from train data
+
+    db -    internal DB for keeping track of spider activities
