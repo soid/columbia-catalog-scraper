@@ -77,7 +77,7 @@ class CatalogSpider(scrapy.Spider, CulpaSearch):
 
         @url http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html
         @returns items 0 0
-        @returns requests 300 500
+        @returns requests 300 700
         """
         logger.info('Parsing URL=%s Status=%d', response.url, response.status)
 
@@ -121,7 +121,7 @@ class CatalogSpider(scrapy.Spider, CulpaSearch):
 
         @url http://www.columbia.edu/cu/bulletin/uwb/subj/COMS/W3157-20203-001/
         @returns items 1 1
-        @returns requests 2 2
+        @returns requests 1 1
         """
         logger.info('Parsing class from department %s URL=%s Status=%d',
                     ColumbiaDepartmentListing.get_from_response_meta(response)['department_code'],

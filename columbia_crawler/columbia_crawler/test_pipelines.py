@@ -80,8 +80,6 @@ class TestStoreClassPipeline(TestCase):
     def _verify_instructors(self, df):
         self.assertEqual(3, len(df.index))
         self.assertEqual(3, len(df.loc[df['name'].str.contains('test instructor')].index))
-        self.assertEqual(1, len(df.loc[df['wikipedia_link'].str
-                                .contains('test_wikipedia', regex=False, na=False)].index))
 
     def _verify_classes(self, df):
         self.assertLess(0, len(df.index))

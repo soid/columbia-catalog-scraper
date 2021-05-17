@@ -99,7 +99,10 @@ class StoreWikiSearchResultsPipeline(object):
         os.makedirs(config.DATA_WIKI_DIR, exist_ok=True)
         self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME, 'w')
         self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME, 'w')
-        self.instr_df = pd.read_json(config.DATA_INSTRUCTORS_JSON, lines=True)
+        if os.path.exists(config.DATA_INSTRUCTORS_JSON):
+            self.instr_df = pd.read_json(config.DATA_INSTRUCTORS_JSON, lines=True)
+        else:
+            self.instr_df = pd.DataFrame()
 
     def close_spider(self, spider):
         logger.info("Start storing data")
@@ -123,8 +126,7 @@ class StoreWikiSearchResultsPipeline(object):
             logging.info("Updating term: " + term)
 
             # load term file
-            df_term = pd.read_json(config.DATA_CLASSES_DIR + '/' + file,
-                                   lines=True, orient="records", dtype=object)
+            df_term = StoreClassPipeline._read_term(term)
             if 'instructor_wikipedia_link' not in df_term.columns:
                 df_term["instructor_wikipedia_link"] = pd.NaT   # add column if it's not there
 

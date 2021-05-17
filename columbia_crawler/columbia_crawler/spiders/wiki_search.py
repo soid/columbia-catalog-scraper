@@ -41,7 +41,6 @@ class WikiSearch(scrapy.Spider):
         df = pd.read_json(config.DATA_INSTRUCTORS_JSON, lines=True)
 
         # join internal db to store last check and don't check too often
-        os.makedirs(config.DATA_INTERNAL_DB_DIR, exist_ok=True)
         if os.path.exists(config.DATA_INSTRUCTORS_INTERNAL_INFO_JSON):
             self.df_internal = pd.read_json(config.DATA_INSTRUCTORS_INTERNAL_INFO_JSON, lines=True)
         else:
@@ -81,12 +80,14 @@ class WikiSearch(scrapy.Spider):
                              'department': department})
 
     def close(self, reason):
-        logger.info("Started updating internal db")
-        file_json = open(config.DATA_INSTRUCTORS_INTERNAL_INFO_JSON, 'w')
-        self.df_internal.sort_values(by=['name'], inplace=True)
-        self.df_internal.to_json(path_or_buf=file_json, orient="records", lines=True)
-        file_json.close()
-        logger.info("Finished updating internal db")
+        if self.df_internal:
+            logger.info("Started updating internal db")
+            os.makedirs(config.DATA_INTERNAL_DB_DIR, exist_ok=True)
+            file_json = open(config.DATA_INSTRUCTORS_INTERNAL_INFO_JSON, 'w')
+            self.df_internal.sort_values(by=['name'], inplace=True)
+            self.df_internal.to_json(path_or_buf=file_json, orient="records", lines=True)
+            file_json.close()
+            logger.info("Finished updating internal db")
 
     def parse_wiki_instructor_search_results(self, response):
         """ Starting with department list, crawl all listings by each department.
@@ -97,6 +98,9 @@ class WikiSearch(scrapy.Spider):
         """
         instructor = response.meta.get('instructor')
         department = response.meta.get('department')
+        if config.IN_TEST:
+            instructor = "Test Testoff"
+            department = "Memology"
 
         json_response = json.loads(response.body_as_unicode())
         search = json_response['query']['search']
@@ -158,6 +162,9 @@ class WikiSearch(scrapy.Spider):
         """
         instructor = response.meta.get('instructor')
         department = response.meta.get('department')
+        if config.IN_TEST:
+            instructor = "Test Testoff"
+            department = "Memology"
 
         json_response = json.loads(response.body_as_unicode())
         pages = json_response['query']['pages']
