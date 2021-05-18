@@ -96,6 +96,7 @@ class CatalogSpider(scrapy.Spider, CulpaSearch):
 
     def parse_department_listing(self, response):
         logger.info('Parsing department URL=%s Status=%d', response.url, response.status)
+        self.crawler.stats.inc_value('catalog_parsed_departments')
         filename = response.url.split('/')[-1]
         filename2 = filename.split('.')[0]  # no .html extension
         department_code, term_url = filename2.rsplit('_', maxsplit=1)
@@ -127,6 +128,7 @@ class CatalogSpider(scrapy.Spider, CulpaSearch):
         logger.info('Parsing class from department %s URL=%s Status=%d',
                     ColumbiaDepartmentListing.get_from_response_meta(response)['department_code'],
                     response.url, response.status)
+        self.crawler.stats.inc_value('catalog_parsed_classes')
 
         class_listing = ColumbiaClassListing.get_from_response(response)
         yield class_listing

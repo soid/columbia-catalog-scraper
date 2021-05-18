@@ -32,8 +32,7 @@ do
             exit 0
             ;;
         p)
-            scrapy crawl catalog --logfile columbia_crawler.log
-            scrapy crawl wiki_search --logfile columbia_crawler.log
+            ../run-script.sh columbia_crawler/run_spiders.py
             exit 0
             ;;
         ?)

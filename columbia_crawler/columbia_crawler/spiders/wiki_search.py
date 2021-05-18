@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 # Spider for searching instructors wikipedia profiles
-class WikiSearch(scrapy.Spider):
+class WikiSearchSpider(scrapy.Spider):
     name = "wiki_search"
 
     custom_settings = {
@@ -31,7 +31,7 @@ class WikiSearch(scrapy.Spider):
     }
 
     def __init__(self, *args, **kwargs):
-        super(WikiSearch, self).__init__(*args, **kwargs)
+        super(WikiSearchSpider, self).__init__(*args, **kwargs)
         self.search_clf = WikiSearchClassifier()
         self.search_clf.load_model()
         self.article_clf = WikiArticleClassifier()
@@ -39,6 +39,9 @@ class WikiSearch(scrapy.Spider):
         self.df_internal = None
 
     def start_requests(self):
+        self.crawler.stats.set_value('wiki_articles_loaded', 0)
+        self.crawler.stats.set_value('wiki_searches', 0)
+
         df = pd.read_json(config.DATA_INSTRUCTORS_JSON, lines=True)
 
         # join internal db to store last check and don't check too often
@@ -74,6 +77,7 @@ class WikiSearch(scrapy.Spider):
                 break
 
     def _follow_search_wikipedia_instructor(self, instructor: str, department: str):
+        self.crawler.stats.inc_value('wiki_searches')
         url = 'https://en.wikipedia.org/w/api.php?action=query&list=search&utf8=&format=json&srsearch=' \
               + urllib.parse.quote_plus("Columbia University intitle:" + instructor)
         return Request(url, callback=self.parse_wiki_instructor_search_results,
@@ -142,6 +146,7 @@ class WikiSearch(scrapy.Spider):
                     wikipedia_title=row['search_results.title'])
                 break
             if p == WSC.LABEL_POSSIBLY:
+                self.crawler.stats.inc_value('wiki_articles_loaded')
                 url = 'https://en.wikipedia.org/w/api.php?' \
                       'format=json&action=query&prop=extracts&exlimit=max&' \
                       'explaintext&titles='\
