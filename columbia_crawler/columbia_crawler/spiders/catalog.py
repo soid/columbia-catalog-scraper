@@ -61,6 +61,7 @@ class CatalogSpider(scrapy.Spider, CulpaSearch):
 
     custom_settings = {
         'HTTPCACHE_ENABLED': config.HTTP_CACHE_ENABLED,
+        'HTTPCACHE_DIR': config.HTTPCACHE_DIR,
         'LOG_LEVEL': config.LOG_LEVEL,
         'ITEM_PIPELINES': {
             'columbia_crawler.pipelines.StoreRawListeningPipeline': 300,

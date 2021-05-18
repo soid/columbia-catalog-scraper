@@ -17,6 +17,7 @@ config['project'] = dirname(dirname(abspath(__file__)))
 
 # read config values
 DATA_DIR = config['DATA_DIR']
+HTTPCACHE_DIR = config['HTTPCACHE_DIR']
 LOG_LEVEL = config['LOG_LEVEL']
 
 if IN_TEST:

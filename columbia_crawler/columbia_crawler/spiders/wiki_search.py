@@ -24,6 +24,7 @@ class WikiSearchSpider(scrapy.Spider):
 
     custom_settings = {
         'HTTPCACHE_ENABLED': config.HTTP_CACHE_ENABLED,
+        'HTTPCACHE_DIR': config.HTTPCACHE_DIR,
         'LOG_LEVEL': config.LOG_LEVEL,
         'ITEM_PIPELINES': {
             'columbia_crawler.pipelines.StoreWikiSearchResultsPipeline': 400,
