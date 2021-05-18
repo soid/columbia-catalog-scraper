@@ -4,7 +4,8 @@
 
 from os import listdir
 import unittest
-from typing import re, List, Callable, Any
+import re
+from typing import re as regex, List, Callable, Any
 
 import pandas as pd
 from cu_catalog import config
@@ -13,8 +14,9 @@ from cu_catalog import config
 class CanaryTest(unittest.TestCase):
     def test_class_files(self):
         json_files_count = 0
-        for cls_fn in listdir(config.DATA_CLASSES_DIR):
+        for cls_fn in sorted(listdir(config.DATA_CLASSES_DIR)):
             if cls_fn.endswith('.json'):
+                term, _ = cls_fn.rsplit('.', 1)
                 self._setTestFileName(cls_fn)
                 json_files_count += 1
 
@@ -23,7 +25,7 @@ class CanaryTest(unittest.TestCase):
                 # validate fields
 
                 # course_code
-                self.assertColRegex(df, 'course_code', r'^[\w_]{4} (\w{1,3}\d{2,4}|\dX+)\w?_?$', 25)
+                self.assertColRegex(df, 'course_code', r'^[\w_]{4} (\w{1,3}\d{2,4}|\dX+)\w{0,2}_?$', 25)
 
                 self.assertColRegex(df, 'course_title', r'^...+$', 25)
 
@@ -43,7 +45,7 @@ class CanaryTest(unittest.TestCase):
                 self.assertColInSet(df, 'campus',
                                     ['Morningside', 'Barnard College', 'Presbyterian Hospital'], 1)
 
-                self.assertColRegex(df, 'class_id', r'^[\w\d]{5}-\d{5}-[\w\d]{3}$', 25)
+                self.assertColRegex(df, 'class_id', r'^[\w\d]{5,6}-\d{5}-[\w\d]{3}$', 25)
 
                 # department
                 self.assertColInSet(df, 'department',
@@ -62,7 +64,8 @@ class CanaryTest(unittest.TestCase):
                 # TODO: instructor_wikipedia_link
                 # TODO: link
 
-                self.assertColInSet(df, 'location', ['To be announced'])
+                if term != '2021-Fall':
+                    self.assertColInSet(df, 'location', ['To be announced'])
 
                 # TODO: open_to
                 # self.assertColInSet(df, 'open_to', ['DISCUSSION', 'LECTURE'], 1)
@@ -73,10 +76,15 @@ class CanaryTest(unittest.TestCase):
 
         self.assertGreater(json_files_count, 0)
 
-    def assertColRegex(self, df: pd.DataFrame, col: str, regex: re, min_values: int,
+    def assertColRegex(self, df: pd.DataFrame, col: str, regex: regex, min_values: int,
                        exceptions: List[str] or None = None):
+        if isinstance(regex, (str, bytes)):
+            assert regex, "expected_regex must not be empty."
+            regex = re.compile(regex)
         def assert_func(val, msg):
-            self.assertRegex(val, regex, msg)
+            if not regex.search(val):
+                return False
+            return True
         self._assertGeneric(df, col, assert_func, min_values, exceptions)
 
     def assertColInSet(self, df: pd.DataFrame, column: str, expected_values: List[str],
@@ -98,13 +106,14 @@ class CanaryTest(unittest.TestCase):
             if val in expected_values_copy:
                 expected_values_copy.remove(val)
                 found_count += 1
+            return True
 
         self._assertGeneric(df, column, assert_func, min_values, exceptions)
         self.assertGreaterEqual(found_count, min_values,
                                 "Not found at least {} values from the list {} in column: {}, file: {}.\n"
                                 'Found values: {}'
                                 .format(min_values, expected_values, column, self.test_file_name,
-                                        "\n    ".join([k + ": " + v for k, v in found_values.items()])))
+                                        "\n    ".join([str(k) + ": " + str(v) for k, v in found_values.items()])))
 
     def assertColHasUniqueValues(self, df: pd.DataFrame, col: str, min_values: int):
         pass
@@ -112,6 +121,7 @@ class CanaryTest(unittest.TestCase):
     def assertColType(self, df: pd.DataFrame, col: str, expected_type: type, min_distinct_values: int):
         def assert_func(val: int, msg):
             self.assertEqual(expected_type, type(val), msg)
+            return True
         self._assertGeneric(df, col, assert_func, min_distinct_values)
 
     def _setTestFileName(self, filename: str):
@@ -124,8 +134,10 @@ class CanaryTest(unittest.TestCase):
         for index, row in df.drop_duplicates([column]).iterrows():
             if row[column] is not None \
                     and (exceptions is None or row[column] not in exceptions):
-                assert_func(row[column], "in column: '{}' file: '{}' coure_code: '{}' link: '{}'"
+                result = assert_func(row[column], "in column: '{}' file: '{}' coure_code: '{}' link: '{}'"
                             .format(column, self.test_file_name, row['course_code'], row['link']))
+                if not result:
+                    continue
                 count += 1
         self.assertGreaterEqual(count, min_values,
                            "in column: '{}' file: '{}'".format(column, self.test_file_name))
