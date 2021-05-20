@@ -10,3 +10,4 @@ Scrapy~=2.0.1
 w3lib~=1.21.0
 requests~=2.23.0
 betamax~=0.8.1
+unidecode

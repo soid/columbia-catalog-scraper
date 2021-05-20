@@ -1,20 +1,97 @@
+import datetime
 import logging
-import urllib
-from scrapy import Request
+from typing import List
 
-from columbia_crawler.items import ColumbiaDepartmentListing, CulpaInstructor
+import pandas as pd
+import random
+import urllib
+import scrapy
+from scrapy import Request
+from parsel.selector import SelectorList
+
+from columbia_crawler import util
+from columbia_crawler.items import CulpaInstructor
+from cu_catalog import config
+from cu_catalog.models.util import words_match2
 
 logger = logging.getLogger(__name__)
 
 
-class CulpaSearch:
-    def _follow_culpa_instructor(self, instructor, department_listing):
+class CulpaSearchSpider(scrapy.Spider):
+    name = 'culpa_search'
+
+    custom_settings = {
+        'HTTPCACHE_ENABLED': config.HTTP_CACHE_ENABLED,
+        'HTTPCACHE_DIR': config.HTTPCACHE_DIR,
+        'LOG_LEVEL': config.LOG_LEVEL,
+        'ITEM_PIPELINES': {
+            'columbia_crawler.pipelines.StoreCulpaSearchPipeline': 100,
+        }
+    }
+
+    def __init__(self, *args, **kwargs):
+        super(CulpaSearchSpider, self).__init__(*args, **kwargs)
+        self.instructors_internal_db = None
+
+    def start_requests(self):
+        self.crawler.stats.set_value('culpa_searches', 0)
+        self.crawler.stats.set_value('culpa_profiles_loaded', 0)
+
+        df = pd.read_json(config.DATA_INSTRUCTORS_JSON, lines=True)
+
+        # join internal db to store last check and don't check too often
+        self.instructors_internal_db = util.InstructorsInternalDb(['last_culpa_search', 'last_culpa_profile'])
+        df = df.join(self.instructors_internal_db.df_internal.set_index('name'), on="name")
+
+        # select instructors without link
+        df_nolink = df[df['culpa_link'].isnull()]
+
+        # check every few days
+        def recent_threshold(x):
+            if pd.isna(x):
+                return True
+            return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(3, 7))
+        df_nolink = df_nolink[df_nolink['last_culpa_search'].apply(recent_threshold)]
+
+        # yield instructors without links
+        def _yield(x):
+            _, row = x
+            self.instructors_internal_db.update_instructor(row['name'], 'last_culpa_search')
+            return self._search_culpa_instructor(row['name'], row['departments'])
+        yield from util.spider_run_loop(self, df_nolink.iterrows(), _yield)
+
+        # check profiles of instructors with links
+        df_link = df[df['culpa_link'].notnull()]
+
+        def recent_threshold(x):
+            if pd.isna(x):
+                return True
+            return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(3, 7))
+        df_link = df_link[
+            df_link['last_culpa_profile'].apply(recent_threshold)
+            ]
+
+        def _yield(x):
+            _, row = x
+            self.instructors_internal_db.update_instructor(row['name'], 'last_culpa_profile')
+            return self._check_culpa_instructor_profile(row['name'], row['culpa_link'])
+        yield from util.spider_run_loop(self, df_link.iterrows(), _yield)
+
+    def close(self, reason):
+        if self.instructors_internal_db is not None:
+            self.instructors_internal_db.store()
+
+    def _search_culpa_instructor(self, instructor: str, departments: List[str]):
         url = 'http://culpa.info/search?utf8=✓&search=' \
               + urllib.parse.quote_plus(instructor) + '&commit=Search'
         return Request(url, callback=self.parse_culpa_search_instructor,
-                       meta={
-                           'department_listing': department_listing,
-                           'instructor': instructor})
+                       meta={'instructor': instructor,
+                             'departments': departments})
+
+    def _check_culpa_instructor_profile(self, instructor: str, url: str):
+        return Request(url, callback=self.parse_culpa_instructor,
+                      meta={'instructor': instructor,
+                            'link': url})
 
     def parse_culpa_search_instructor(self, response):
         """
@@ -22,19 +99,39 @@ class CulpaSearch:
         @returns items 0 0
         @returns requests 1 1
         """
-        found = response.css('.search_results .box tr td:first-child')
+        self.crawler.stats.inc_value('culpa_searches')
+        instructor = response.meta.get('instructor')
+        if config.IN_TEST and not instructor:
+            instructor = "Ismail V Noyan"
+
+        # find professors search section
+        found = None
+        for box in response.css('.search_results .box'):
+            section_name = box.css('th::text').get()
+            if section_name.lower() == 'professors':
+                found = box.css('tr td:first-child')
+
+        # sort out not matching names
         if found:
-            if len(found) > 1:
-                logger.warning("More than 1 result for '%s' from '%s' on CULPA",
-                               response.meta.get('instructor'),
-                               ColumbiaDepartmentListing.get_from_response_meta(response)['department_code'])
-            link = found.css('a::attr(href)').get()
-            url = 'http://culpa.info' + link
-            nugget = found.css('img.nugget::attr(alt)').get()
-            yield Request(url, callback=self.parse_culpa_instructor,
-                          meta={**response.meta,
-                                'link': link,
-                                'nugget': nugget})
+            found_matching_names = SelectorList([])
+            for result in found:
+                found_name = result.css('a::text').get()
+                if found_name and words_match2(instructor, found_name):
+                    found_matching_names.append(result)
+            if len(found_matching_names) > 1:
+                logger.warning("More than 1 result for '%s' from %s on CULPA",
+                               instructor,
+                               response.meta.get('departments'))
+            if len(found_matching_names) > 0:
+                link = found_matching_names.css('a::attr(href)').get()
+                url = 'http://culpa.info' + link
+                yield self._check_culpa_instructor_profile(response.meta.get('instructor'), url)
+            else:
+                # if not found try to remove middle name if exists and search again
+                name = instructor.split()
+                name2 = [w for w in name if len(w) > 1]
+                if len(name) > len(name2):
+                    yield self._search_culpa_instructor(" ".join(name2), response.meta.get('departments'))
 
     def parse_culpa_instructor(self, response):
         """
@@ -43,17 +140,20 @@ class CulpaSearch:
         @returns requests 0 0
         """
         # Idea: we could classify reviews sentiment if we capture review texts here
+        self.crawler.stats.inc_value('culpa_profiles_loaded')
 
+        nugget_html = response.css('h1 img.nugget::attr(alt)').get()
         nugget = None
-        if response.meta.get('nugget'):
-            if response.meta.get('nugget').upper().startswith("GOLD"):
+        if nugget_html:
+            if nugget_html.upper().startswith("GOLD"):
                 nugget = CulpaInstructor.NUGGET_GOLD
-            if response.meta.get('nugget').upper().startswith("SILVER"):
+            if nugget_html.upper().startswith("SILVER"):
                 nugget = CulpaInstructor.NUGGET_SILVER
+        number_reviews = len(response.css('div.professor .review'))
 
         yield CulpaInstructor(
             name=response.meta.get('instructor'),
             link=response.meta.get('link'),
-            reviews_count=int(len(response.css('div.professor .review'))),
+            reviews_count=number_reviews,
             nugget=nugget
         )

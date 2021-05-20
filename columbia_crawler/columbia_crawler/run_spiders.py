@@ -6,6 +6,7 @@ from scrapy.utils.log import configure_logging
 import logging
 
 from columbia_crawler.spiders.catalog import CatalogSpider
+from columbia_crawler.spiders.culpa_search import CulpaSearchSpider
 from columbia_crawler.spiders.wiki_search import WikiSearchSpider
 from scrapy.utils.project import get_project_settings
 
@@ -26,11 +27,18 @@ runner = CrawlerRunner(settings)
 def crawl():
     crawler_catalog = runner.create_crawler(CatalogSpider)
     yield runner.crawl(crawler_catalog)
+
     crawler_wiki_search = runner.create_crawler(WikiSearchSpider)
     yield runner.crawl(crawler_wiki_search)
+
+    crawler_culpa_search = runner.create_crawler(CulpaSearchSpider)
+    yield runner.crawl(crawler_culpa_search)
+
     reactor.stop()
+
     logger.info("Catalog crawling results:\n%s", pprint.pformat(crawler_catalog.stats.get_stats()))
     logger.info("Wikipedia crawling results:\n%s", pprint.pformat(crawler_wiki_search.stats.get_stats()))
+    logger.info("CULPA crawling results:\n%s", pprint.pformat(crawler_culpa_search.stats.get_stats()))
 
 
 crawl()

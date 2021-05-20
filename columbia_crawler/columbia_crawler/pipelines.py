@@ -94,50 +94,68 @@ class StoreRawListeningPipeline(object):
         f.close()
 
 
-class StoreWikiSearchResultsPipeline(object):
+class BaseInstructorEnrichmentPipeline(object):
+    """Base class for instructor data enrichment
+
+    self.update_fields must be defined as a dictionary: instructor's field -> class field
+    """
+
     def open_spider(self, spider):
-        os.makedirs(config.DATA_WIKI_DIR, exist_ok=True)
-        self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME, 'w')
-        self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME, 'w')
         if os.path.exists(config.DATA_INSTRUCTORS_JSON):
             self.instr_df = pd.read_json(config.DATA_INSTRUCTORS_JSON, lines=True)
         else:
-            self.instr_df = pd.DataFrame()
+            self.instr_df = pd.DataFrame(dtype=object)
 
     def close_spider(self, spider):
-        logger.info("Start storing data")
-        self.file_wiki_search.close()
         # store instructors files
         StoreClassPipeline.store_instructors(self.instr_df)
 
         # Update class files
-        df_wiki_links = self.instr_df.filter(['name', 'wikipedia_link'])
-        df_wiki_links.rename(
-            columns={
-                'wikipedia_link': 'instructor_wikipedia_link',
-                'name': 'instructor'
-            },
-            inplace=True)
-        df_wiki_links = df_wiki_links.set_index('instructor')
+        df_enriched = self.instr_df.filter(['name'] + list(self.update_fields.keys()))
+
+        columns = dict(self.update_fields)
+        columns['name'] = 'instructor'
+        df_enriched.rename(columns=columns, inplace=True)
+        df_enriched = df_enriched.set_index('instructor')
 
         files = [fn for fn in os.listdir(config.DATA_CLASSES_DIR) if fn.endswith('.json')]
         for file in files:
             term, _ = file.rsplit('.', 1)
-            logging.info("Updating term: " + term)
+            logger.info("Updating term: " + term)
 
             # load term file
             df_term = StoreClassPipeline._read_term(term)
-            if 'instructor_wikipedia_link' not in df_term.columns:
-                df_term["instructor_wikipedia_link"] = pd.NaT   # add column if it's not there
+            for class_field in self.update_fields.values():
+                if class_field not in df_term.columns:
+                    df_term[class_field] = pd.NaT   # add column if it's not there
 
             # merge / update wiki links
-            df_merged = df_term.join(df_wiki_links, on="instructor", rsuffix='_right')
-            df_merged['instructor_wikipedia_link'] = df_merged['instructor_wikipedia_link']\
-                .fillna(df_merged['instructor_wikipedia_link_right'])
-            df_merged = df_merged.drop(['instructor_wikipedia_link_right'], axis=1)
+            df_merged = df_term.join(df_enriched, on="instructor", rsuffix='_right')
+            for class_field in self.update_fields.values():
+                df_merged[class_field] = df_merged[class_field].fillna(df_merged[class_field + '_right'])
+                df_merged = df_merged.drop([class_field + '_right'], axis=1)
 
             # store
             StoreClassPipeline.store_classes_term(term, df_merged)
+
+
+class StoreWikiSearchResultsPipeline(BaseInstructorEnrichmentPipeline):
+
+    def __init__(self):
+        self.update_fields = {'wikipedia_link': 'instructor_wikipedia_link'}
+
+    def open_spider(self, spider):
+        super(StoreWikiSearchResultsPipeline, self).open_spider(spider)
+        # files for storing search results and articles for training classifier
+        os.makedirs(config.DATA_WIKI_DIR, exist_ok=True)
+        self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME, 'w')
+        self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME, 'w')
+
+    def close_spider(self, spider):
+        logger.info("Start storing data")
+        super(StoreWikiSearchResultsPipeline, self).close_spider(spider)
+        self.file_wiki_search.close()
+        self.file_wiki_article.close()
         logger.info("Finished storing data")
 
     def process_item(self, item, spider):
@@ -160,11 +178,34 @@ class StoreWikiSearchResultsPipeline(object):
         return item
 
 
+class StoreCulpaSearchPipeline(BaseInstructorEnrichmentPipeline):
+    """Store CULPA reviews"""
+
+    def __init__(self):
+        self.update_fields = {
+            'culpa_link': 'instructor_culpa_link',
+            'culpa_nugget': 'instructor_culpa_nugget',
+            'culpa_reviews_count': 'instructor_culpa_reviews_count',
+        }
+
+    def process_item(self, item, spider):
+        if isinstance(item, CulpaInstructor):
+            self.instr_df.loc[self.instr_df['name'] == item['name'], 'culpa_link'] = item['link']
+            self.instr_df.loc[self.instr_df['name'] == item['name'], 'culpa_nugget'] = item['nugget']
+            self.instr_df.loc[self.instr_df['name'] == item['name'], 'culpa_reviews_count'] = item['reviews_count']
+        return item
+
+    def close_spider(self, spider):
+        logger.info("Start storing data")
+        super(StoreCulpaSearchPipeline, self).close_spider(spider)
+        logger.info("Finished storing data")
+
+
 class StoreClassPipeline(object):
     """Store classes and instructors in json and csv formats."""
 
     def open_spider(self, spider):
-        self.classes_in_term: Dict[List[object]] = defaultdict(lambda: [], {})
+        self.classes_in_term: Dict[str, List[object]] = defaultdict(lambda: [], {})
         self.instructors = defaultdict(lambda: {}, {})
 
         # mapper from instructor name to classes ref in self.classes_in_term
@@ -191,28 +232,10 @@ class StoreClassPipeline(object):
 
                 self.instr2classes[item['instructor']].append(cls)
 
-        if isinstance(item, CulpaInstructor):
-            instr = self.instructors[item['name']]
-            instr['name'] = item['name']
-            instr['culpa_link'] = 'http://culpa.info' + item['link']
-            instr['culpa_nugget'] = item['nugget']
-            instr['culpa_reviews_count'] = int(item['reviews_count'])
-
         return item
 
     def close_spider(self, spider):
         self.classes_files = []
-
-        # update instructors info
-        name: str
-        clss: List[Dict]
-        for name, clss in self.instr2classes.items():
-            for cls in clss:
-                instr = self.instructors[name]
-                if 'culpa_link' in instr and instr['culpa_link']:
-                    cls['instructor_culpa_link'] = instr['culpa_link']
-                    cls['instructor_culpa_nugget'] = instr['culpa_nugget']
-                    cls['instructor_culpa_reviews_count'] = int(instr['culpa_reviews_count'])
 
         # store classes
         os.makedirs(config.DATA_CLASSES_DIR, exist_ok=True)

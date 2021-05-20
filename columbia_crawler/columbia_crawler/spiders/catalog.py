@@ -7,13 +7,12 @@ from scrapy import Request
 
 from columbia_crawler import util
 from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing
-from columbia_crawler.spiders.culpa_search import CulpaSearch
 from cu_catalog import config
 
 logger = logging.getLogger(__name__)
 
 
-class CatalogSpider(scrapy.Spider, CulpaSearch):
+class CatalogSpider(scrapy.Spider):
     name = 'catalog'
 
     start_urls = ["http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html"]
@@ -124,7 +123,7 @@ class CatalogSpider(scrapy.Spider, CulpaSearch):
 
         @url http://www.columbia.edu/cu/bulletin/uwb/subj/COMS/W3157-20203-001/
         @returns items 1 1
-        @returns requests 1 1
+        @returns requests 0 0
         """
         logger.info('Parsing class from department %s URL=%s Status=%d',
                     ColumbiaDepartmentListing.get_from_response_meta(response)['department_code'],
@@ -133,7 +132,3 @@ class CatalogSpider(scrapy.Spider, CulpaSearch):
 
         class_listing = ColumbiaClassListing.get_from_response(response)
         yield class_listing
-
-        if class_listing['instructor']:
-            yield self._follow_culpa_instructor(class_listing['instructor'],
-                                                ColumbiaDepartmentListing.get_from_response_meta(response))

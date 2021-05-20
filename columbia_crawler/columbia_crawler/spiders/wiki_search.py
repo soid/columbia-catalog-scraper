@@ -1,7 +1,6 @@
 import datetime
 import json
 import logging
-import os
 import random
 
 import pandas as pd
@@ -9,6 +8,7 @@ import scrapy
 from scrapy import Request
 import urllib
 
+from columbia_crawler import util
 from columbia_crawler.items import WikipediaInstructorSearchResults, WikipediaInstructorPotentialArticle, \
     WikipediaInstructorArticle
 from cu_catalog import config
@@ -37,7 +37,7 @@ class WikiSearchSpider(scrapy.Spider):
         self.search_clf.load_model()
         self.article_clf = WikiArticleClassifier()
         self.article_clf.load_model()
-        self.df_internal = None
+        self.instructors_internal_db = None
 
     def start_requests(self):
         self.crawler.stats.set_value('wiki_articles_loaded', 0)
@@ -46,13 +46,10 @@ class WikiSearchSpider(scrapy.Spider):
         df = pd.read_json(config.DATA_INSTRUCTORS_JSON, lines=True)
 
         # join internal db to store last check and don't check too often
-        if os.path.exists(config.DATA_INSTRUCTORS_INTERNAL_INFO_JSON):
-            self.df_internal = pd.read_json(config.DATA_INSTRUCTORS_INTERNAL_INFO_JSON, lines=True)
-        else:
-            self.df_internal = pd.DataFrame(columns=['name', 'last_wikipedia_search'])
+        self.instructors_internal_db = util.InstructorsInternalDb(['last_wikipedia_search'])
 
         df = df[df['wikipedia_link'].isnull()]
-        df = df.join(self.df_internal.set_index('name'), on="name")
+        df = df.join(self.instructors_internal_db.df_internal.set_index('name'), on="name")
         df['last_wikipedia_search'] = pd.to_datetime(df['last_wikipedia_search'], unit='ms')
 
         # filter out recently checked instructors
@@ -60,22 +57,13 @@ class WikiSearchSpider(scrapy.Spider):
             return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(15, 45))
         df = df[df['last_wikipedia_search'].isna() | df['last_wikipedia_search'].apply(recent_threshold)]
 
-        test_run = getattr(self, 'test_run', False)
-        num = 0
+        def _yield(x):
+            _, row = x
+            self.instructors_internal_db.update_instructor(row['name'], 'last_wikipedia_search')
+            return self._follow_search_wikipedia_instructor(row['name'],
+                                                            "; ".join(row['departments']))
+        yield from util.spider_run_loop(self, df.iterrows(), _yield)
 
-        for index, row in df.iterrows():
-            if row['name'] not in self.df_internal['name'].values:
-                # create row
-                self.df_internal = self.df_internal.append({'name': row['name']}, ignore_index=True)
-            self.df_internal.loc[self.df_internal['name'] == row['name'],
-                                 'last_wikipedia_search'] = datetime.datetime.now()
-
-            yield self._follow_search_wikipedia_instructor(row['name'],
-                                                           "; ".join(row['departments']))
-
-            num += 1
-            if test_run and num > 20:
-                break
 
     def _follow_search_wikipedia_instructor(self, instructor: str, department: str):
         self.crawler.stats.inc_value('wiki_searches')
@@ -86,14 +74,8 @@ class WikiSearchSpider(scrapy.Spider):
                              'department': department})
 
     def close(self, reason):
-        if self.df_internal is not None:
-            logger.info("Started updating internal db")
-            os.makedirs(config.DATA_INTERNAL_DB_DIR, exist_ok=True)
-            file_json = open(config.DATA_INSTRUCTORS_INTERNAL_INFO_JSON, 'w')
-            self.df_internal.sort_values(by=['name'], inplace=True)
-            self.df_internal.to_json(path_or_buf=file_json, orient="records", lines=True)
-            file_json.close()
-            logger.info("Finished updating internal db")
+        if self.instructors_internal_db is not None:
+            self.instructors_internal_db.store()
 
     def parse_wiki_instructor_search_results(self, response):
         """ Starting with department list, crawl all listings by each department.
@@ -110,7 +92,7 @@ class WikiSearchSpider(scrapy.Spider):
 
         json_response = json.loads(response.body_as_unicode())
         search = json_response['query']['search']
-        logger.info('WIKI: Search results for %s : %s', instructor, search)
+        logger.debug('WIKI: Search results for %s : %s', instructor, search)
 
         if len(search) == 0:
             return
@@ -169,7 +151,7 @@ class WikiSearchSpider(scrapy.Spider):
         """
         instructor = response.meta.get('instructor')
         department = response.meta.get('department')
-        if config.IN_TEST:
+        if config.IN_TEST and not instructor:
             instructor = "Test Testoff"
             department = "Memology"
 

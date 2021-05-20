@@ -1,11 +1,13 @@
 from betamax import Betamax
 from betamax.fixtures.unittest import BetamaxTestCase
 from scrapy import Request
+from scrapy.crawler import Crawler
 from scrapy.http import HtmlResponse
 import os.path
 
 from columbia_crawler.items import ColumbiaDepartmentListing, ColumbiaClassListing
 from columbia_crawler.spiders.catalog import CatalogSpider
+from columbia_crawler.spiders.culpa_search import CulpaSearchSpider
 
 with Betamax.configure() as config:
     # where betamax will store cassettes (http responses):
@@ -20,11 +22,17 @@ recorder = Betamax(session)
 
 
 class TestCatalogSpider(BetamaxTestCase):
+
+    def _get_spider(self, spider_class):
+        crawler = Crawler(spider_class)
+        crawler.spider = crawler._create_spider()
+        return crawler.spider
+
     def test_parse_department_listing(self):
         url = "http://www.columbia.edu/cu/bulletin/uwb/sel/COMS_Fall2020.html"
         response = self.session.get(url)
         scrapy_response = HtmlResponse(body=response.content, url=url, request=Request(url))
-        catalog = CatalogSpider()
+        catalog = self._get_spider(CatalogSpider)
         result_generator = catalog.parse_department_listing(scrapy_response)
         results = list(result_generator)
 
@@ -49,7 +57,7 @@ class TestCatalogSpider(BetamaxTestCase):
         )
         scrapy_response = HtmlResponse(body=response.content, url=url,
                                        request=Request(url, meta={'department_listing': department_listing}))
-        catalog = CatalogSpider()
+        catalog = self._get_spider(CatalogSpider)
         result_generator = catalog.parse_class_listing(scrapy_response)
         results = list(result_generator)
         return results
@@ -57,7 +65,8 @@ class TestCatalogSpider(BetamaxTestCase):
     def test_parse_class_listing(self):
         results = self._get_class_listing("http://www.columbia.edu/cu/bulletin/uwb/subj/COMS/W4156-20203-001/")
 
-        self.assertGreater(len(results), 1)
+        self.assertGreater(len(results), 0)
+        self.assertGreater(len(results[0]), 1)
         result = next(filter(lambda x: type(x) == ColumbiaClassListing, results))
         print(result)
 
@@ -81,7 +90,7 @@ class TestCatalogSpider(BetamaxTestCase):
         self.assertEqual(result['points'], '3')
         self.assertEqual(result['call_number'], '10072')
         self.assertEqual(result['campus'], 'Morningside')
-        self.assertEqual(result['method_of_instruction'], 'In-person')
+        self.assertEqual(result['method_of_instruction'], 'On-Line Only')
         self.assertEqual(result['open_to'], ['Barnard College',
                 'Columbia College', 'Engineering:Undergraduate',
                 'Engineering:Graduate', 'GSAS',
@@ -176,16 +185,16 @@ class TestCatalogSpider(BetamaxTestCase):
                         'W. Bentley Macleod', 'Ericka Hart', 'Gail E Kaiser'])
 
     def test_parse_culpa_instructor(self):
-        catalog = CatalogSpider()
+        culpa: CulpaSearchSpider = self._get_spider(CulpaSearchSpider)
 
         def _test_instr(name):
             # CULPA search
-            department_listing = ColumbiaDepartmentListing()
-            request = catalog._follow_culpa_instructor(name, department_listing)
+            request = culpa._search_culpa_instructor(name, ['Computer Science'])
             response = self.session.get(request.url)
             scrapy_response = HtmlResponse(body=response.content, url=request.url, request=request)
-            result_generator = catalog.parse_culpa_search_instructor(scrapy_response)
+            result_generator = culpa.parse_culpa_search_instructor(scrapy_response)
             results_search = list(result_generator)
+            print('name=', name, 'request.url=', request.url, 'results_search=', results_search)
             if len(results_search) == 0:
                 return results_search, None
             self.assertIsInstance(results_search[0], Request)
@@ -194,7 +203,7 @@ class TestCatalogSpider(BetamaxTestCase):
             request = results_search[0]
             response = self.session.get(request.url)
             scrapy_response = HtmlResponse(body=response.content, url=request.url, request=request)
-            result_generator = catalog.parse_culpa_instructor(scrapy_response)
+            result_generator = culpa.parse_culpa_instructor(scrapy_response)
             results_prof = list(result_generator)
 
             return results_search, results_prof
@@ -203,10 +212,11 @@ class TestCatalogSpider(BetamaxTestCase):
         results_search, results_prof = _test_instr('John Glendinning')
         self.assertGreater(len(results_search), 0)
         self.assertIsInstance(results_search[0], Request)
-        self.assertEqual(results_prof, [{'link': '/professors/953',
+        self.assertEqual([{'link': 'http://culpa.info/professors/953',
                                  'name': 'John Glendinning',
                                  'nugget': None,
-                                 'reviews_count': 23}])
+                                 'reviews_count': 23}],
+                         results_prof)
 
         # not existing prof
         results_search, results_prof = _test_instr('Really Unknown Professor')  # there's "Unknown Professor"
@@ -215,15 +225,15 @@ class TestCatalogSpider(BetamaxTestCase):
         # silver nugget
         results_search, results_prof = _test_instr('Jennie Kassanoff')
         self.assertGreater(len(results_search), 0)
-        self.assertEqual(results_prof, [{'link': '/professors/717',
+        self.assertEqual(results_prof, [{'link': 'http://culpa.info/professors/717',
                                  'name': 'Jennie Kassanoff',
                                  'nugget': 'silver',
-                                 'reviews_count': 19}])
+                                 'reviews_count': 20}])
 
         # silver nugget
         results_search, results_prof = _test_instr('Aftab Ahmad')
         self.assertGreater(len(results_search), 0)
-        self.assertEqual(results_prof, [{'link': '/professors/10941',
+        self.assertEqual(results_prof, [{'link': 'http://culpa.info/professors/10941',
                                  'name': 'Aftab Ahmad',
                                  'nugget': 'gold',
-                                 'reviews_count': 11}])
+                                 'reviews_count': 12}])
