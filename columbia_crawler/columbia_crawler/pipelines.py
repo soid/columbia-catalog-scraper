@@ -190,9 +190,11 @@ class StoreCulpaSearchPipeline(BaseInstructorEnrichmentPipeline):
 
     def process_item(self, item, spider):
         if isinstance(item, CulpaInstructor):
-            self.instr_df.loc[self.instr_df['name'] == item['name'], 'culpa_link'] = item['link']
-            self.instr_df.loc[self.instr_df['name'] == item['name'], 'culpa_nugget'] = item['nugget']
-            self.instr_df.loc[self.instr_df['name'] == item['name'], 'culpa_reviews_count'] = item['reviews_count']
+            slice = self.instr_df['name'] == item['name']
+            self.instr_df.loc[slice, 'culpa_link'] = item['link']
+            self.instr_df.loc[slice, 'culpa_nugget'] = item['nugget']
+            self.instr_df.loc[slice, 'culpa_reviews_count'] = len(item['reviews'])
+            self.instr_df.loc[slice, 'culpa_reviews'] = pd.Series([item['reviews']] * len(slice))
         return item
 
     def close_spider(self, spider):
@@ -305,6 +307,10 @@ class StoreClassPipeline(object):
             .apply(lambda x: "\n".join(sorted(x)) if np.all(pd.notna(x)) else x)
         df_csv['classes'] = df_csv['classes'] \
             .apply(lambda x: ("\n".join([" ".join(sorted(cls)) for cls in x]) if np.all(pd.notna(x)) else x))
+        remove_columns = ['culpa_reviews']  # remove some columns from csv but leave in json
+        for c in remove_columns:
+            if c in df_csv.columns:
+                df_csv = df_csv.drop([c], axis=1)
 
         StoreClassPipeline._store_df(config.DATA_INSTRUCTORS_DIR + '/instructors', df_json, df_csv)
 

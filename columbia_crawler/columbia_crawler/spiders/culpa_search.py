@@ -149,11 +149,47 @@ class CulpaSearchSpider(scrapy.Spider):
                 nugget = CulpaInstructor.NUGGET_GOLD
             if nugget_html.upper().startswith("SILVER"):
                 nugget = CulpaInstructor.NUGGET_SILVER
-        number_reviews = len(response.css('div.professor .review'))
+
+        # extract reviews
+        reviews = []
+        reviews_html = response.css('div.professor .review')
+        for review_html in reviews_html:
+            review_extracted = review_html.css('.review_content ::text').getall()
+            review_extracted = [r.strip() for r in review_extracted if len(r.strip()) > 0]
+
+            if 'Workload:' in review_extracted:
+                text = review_extracted[:review_extracted.index('Workload:')]
+                workload = review_extracted[review_extracted.index('Workload:')+1:]
+                workload = "\n".join(workload)
+            else:
+                text = review_extracted
+                workload = None
+            text = "\n".join(text)
+
+            pub_date = review_html.css('p.date::text').get().strip()
+            pub_date = datetime.datetime.strptime(pub_date, '%B %d, %Y').date()
+
+            def _get_counter(counter_name: str) -> int:
+                counter = review_html.css('input.' + counter_name + '::attr(value)').get()
+                count = ''.join(filter(lambda i: i.isdigit(), counter))
+                return int(count) if count else 0
+            agree_count = _get_counter('agree')
+            disagree_count = _get_counter('disagree')
+            funny_count = _get_counter('funny')
+
+            review = CulpaInstructor.Review(
+                text=text,
+                workload=workload,
+                publish_date=pub_date,
+                agree_count=agree_count,
+                disagree_count=disagree_count,
+                funny_count=funny_count
+            )
+            reviews.append(review.to_dict())
 
         yield CulpaInstructor(
             name=response.meta.get('instructor'),
             link=response.meta.get('link'),
-            reviews_count=number_reviews,
+            reviews=reviews,
             nugget=nugget
         )

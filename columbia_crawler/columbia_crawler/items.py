@@ -260,11 +260,30 @@ class ColumbiaClassListing(scrapy.Item):
 class CulpaInstructor(scrapy.Item):
     name = scrapy.Field()
     link = scrapy.Field()
+    reviews = scrapy.Field()
     reviews_count = scrapy.Field()
     nugget = scrapy.Field()
 
     NUGGET_GOLD = 'gold'
     NUGGET_SILVER = 'silver'
+
+    class Review(scrapy.Item):
+        text = scrapy.Field()
+        workload = scrapy.Field()
+        publish_date = scrapy.Field()
+        agree_count = scrapy.Field()
+        disagree_count = scrapy.Field()
+        funny_count = scrapy.Field()
+
+        def to_dict(self) -> dict:
+            return {
+                'text':     self['text'],
+                'workload': self['workload'],
+                'publish_date': self['publish_date'].isoformat(),
+                'agree_count':  self['agree_count'],
+                'disagree_count':   self['disagree_count'],
+                'funny_count':      self['funny_count'],
+            }
 
     @staticmethod
     def get_test():
