@@ -86,7 +86,7 @@ class StoreRawListeningPipeline(object):
         if last_file is not None:
             lf = open(last_file, "r")
             if not self._is_different(lf.read(), raw_content):
-                logger.info("%s listing has the same content. Skipping storing", description)
+                logger.debug("%s listing has the same content. Skipping storing", description)
                 return
 
         f = open(out_file, "w")
@@ -206,6 +206,8 @@ class StoreCulpaSearchPipeline(BaseInstructorEnrichmentPipeline):
 class StoreClassPipeline(object):
     """Store classes and instructors in json and csv formats."""
 
+    ENROLLMENT_COLS = ['call_number', 'course_code', 'enrollment']
+
     def open_spider(self, spider):
         self.classes_in_term: Dict[str, List[object]] = defaultdict(lambda: [], {})
         self.instructors = defaultdict(lambda: {}, {})
@@ -238,14 +240,17 @@ class StoreClassPipeline(object):
 
     def close_spider(self, spider):
         self.classes_files = []
+        self.classes_enrollment_files = []
 
         # store classes
         os.makedirs(config.DATA_CLASSES_DIR, exist_ok=True)
+        os.makedirs(config.DATA_CLASSES_ENROLLMENT_DIR, exist_ok=True)
         for term, classes in self.classes_in_term.items():
             def _store_term():
                 df_json = pd.DataFrame(classes, dtype=object)
                 StoreClassPipeline.store_classes_term(term, df_json)
                 self.classes_files.append(config.DATA_CLASSES_DIR + '/' + term)
+                self.classes_enrollment_files.append(config.DATA_CLASSES_ENROLLMENT_DIR + '/' + term)
             _store_term()
 
         # store instructors
@@ -254,29 +259,59 @@ class StoreClassPipeline(object):
 
     @staticmethod
     def store_classes_term(term: str, df_json: pd.DataFrame):
-        # merge old and new: if department is absent in new, don't remove it, keep old
-        # For example, if a department removes an old semester, but other departments still keep it
-        def _merge():
+        # merge old and new class file
+        def _merge_term():
             nonlocal df_json
             df_old_json = StoreClassPipeline._read_term(term)
-            if df_old_json is None:
-                return
-            merge_codes = []
-            for dep_code in df_old_json.department_code.unique().tolist():
-                if dep_code not in df_json['department_code'].values:
-                    # merge dep_code from old file
-                    merge_codes.append(dep_code)
-            if len(merge_codes) > 0:
-                df_json = pd.concat([
-                    df_json,
-                    df_old_json.loc[df_old_json['department_code'].isin(merge_codes)]
-                ]).reset_index(drop=True)
-        _merge()
 
-        # sort rows
-        df_json.sort_values(by=['course_code', 'course_title', 'call_number'], inplace=True)
+            # if department is absent in new, don't remove it, keep old
+            # For example, if a department removes an old semester, but other departments still keep it
+            if df_old_json is not None:
+                merge_codes = []
+                for dep_code in df_old_json.department_code.unique().tolist():
+                    if dep_code not in df_json['department_code'].values:
+                        # merge dep_code from old file
+                        merge_codes.append(dep_code)
+                if len(merge_codes) > 0:
+                    df_json = pd.concat([
+                        df_json,
+                        df_old_json.loc[df_old_json['department_code'].isin(merge_codes)]
+                    ]).reset_index(drop=True)
+        _merge_term()
+
+        def _merge_enrollment():
+            nonlocal df_json
+
+            # merge enrollment data
+            df_enrollment_old_json = StoreClassPipeline._read_term_enrollment(term)
+            df2 = df_enrollment_old_json \
+                .reset_index() \
+                .set_index('call_number')
+            df_enrollment_updated = df_json \
+                .reset_index() \
+                .set_index('call_number')\
+                .join(df2, rsuffix='_old', on="call_number")\
+                .reset_index()
+
+            df_enrollment_updated['enrollment'] = df_enrollment_updated \
+                .apply(StoreClassPipeline._merge_enrollment, axis=1)
+            df_enrollment_updated = df_enrollment_updated[StoreClassPipeline.ENROLLMENT_COLS]
+
+            # don't store enrollment in main class file
+            df_json = df_json.drop(['enrollment'], axis=1)
+
+            return df_enrollment_updated
+        df_enrollment_updated = _merge_enrollment()
+        df_enrollment_updated.sort_values(by=['course_code', 'call_number'], inplace=True)
+
+        # store enrollment in separate files
+        fn = config.DATA_CLASSES_ENROLLMENT_DIR + '/' + term + '.json'
+        file_json = open(fn, 'w')
+        df_enrollment_updated.to_json(path_or_buf=file_json, orient="records", lines=True)
+        file_json.close()
 
         # reorder columns
+        df_json.sort_values(by=['course_code', 'course_title', 'call_number'], inplace=True)
         df_json = StoreClassPipeline \
             ._change_cols_order(df_json, ['course_code', 'course_title', 'course_descr', 'instructor',
                                           'scheduled_time_start', 'scheduled_time_end'])
@@ -292,6 +327,33 @@ class StoreClassPipeline(object):
                                                      if np.all(pd.notna(prereqs)) else prereqs)
 
         StoreClassPipeline._store_df(config.DATA_CLASSES_DIR + '/' + term, df_json, df_csv)
+
+    @staticmethod
+    def _merge_enrollment(row):
+        """
+        >>> row = { \
+            'enrollment': {'2021-06-12': {'cur': 10, 'max': 15}}, \
+            'enrollment_old': {'2021-06-15': {'cur': 9, 'max': 15}} \
+        }
+        >>> StoreClassPipeline._merge_enrollment(row)
+        {'2021-06-12': {'cur': 10, 'max': 15}, '2021-06-15': {'cur': 9, 'max': 15}}
+        >>> row = { \
+            'enrollment': {'2021-06-12': {'cur': 101, 'max': 150}}, \
+            'enrollment_old': {'2021-06-11': {'cur': 101, 'max': 150}, \
+                               '2021-06-10': {'cur': 101, 'max': 150}, \
+                               '2021-06-08': {'cur':  12, 'max': 113} \
+                               } \
+            }
+        >>> StoreClassPipeline._merge_enrollment(row)
+        {'2021-06-12': {'cur': 101, 'max': 150}, '2021-06-11': {'cur': 101, 'max': 150}, '2021-06-10': {'cur': 101, 'max': 150}, '2021-06-08': {'cur': 12, 'max': 113}}
+        """
+        enr_new = row['enrollment']
+        if not enr_new or pd.isna(enr_new):
+            enr_new = {}
+        enr_old = row['enrollment_old']
+        if not enr_old or pd.isna(enr_old):
+            enr_old = {}
+        return {**enr_new, **enr_old}
 
     @staticmethod
     def store_instructors(df_json):
@@ -349,6 +411,14 @@ class StoreClassPipeline(object):
         filename = config.DATA_CLASSES_DIR + '/' + term + '.json'
         if not os.path.exists(filename):
             return
+        df = pd.read_json(filename, lines=True, dtype=object)
+        return df
+
+    @staticmethod
+    def _read_term_enrollment(term):
+        filename = config.DATA_CLASSES_ENROLLMENT_DIR + '/' + term + '.json'
+        if not os.path.exists(filename):
+            return pd.DataFrame(columns=StoreClassPipeline.ENROLLMENT_COLS)
         df = pd.read_json(filename, lines=True, dtype=object)
         return df
 

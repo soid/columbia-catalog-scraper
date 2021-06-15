@@ -95,7 +95,7 @@ class CatalogSpider(scrapy.Spider):
                     break
 
     def parse_department_listing(self, response):
-        logger.info('Parsing department URL=%s Status=%d', response.url, response.status)
+        logger.debug('Parsing department URL=%s Status=%d', response.url, response.status)
         self.crawler.stats.inc_value('catalog_parsed_departments')
         filename = response.url.split('/')[-1]
         filename2 = filename.split('.')[0]  # no .html extension
@@ -110,13 +110,13 @@ class CatalogSpider(scrapy.Spider):
         )
         yield department_listing
 
-        for class_url in response.css('a::attr(href)').getall():
-            if "/cu/bulletin/uwb/subj/" in class_url:
-                follow_url = self.get_domain(response) + class_url
-                yield Request(follow_url, callback=self.parse_class_listing,
-                              meta={
-                                  'department_listing': department_listing,
-                              })
+        for cls_section in response.xpath('//tr/td/a[contains(@href, "/cu/bulletin/uwb/subj/")]/../..'):
+            class_url = cls_section.xpath('.//a[contains(@href, "/cu/bulletin/uwb/subj/")]/@href').get()
+            follow_url = self.get_domain(response) + class_url
+            yield Request(follow_url, callback=self.parse_class_listing,
+                          meta={
+                              'department_listing': department_listing,
+                          })
 
     def parse_class_listing(self, response):
         """ Starting with department list, crawl all listings by each department.
@@ -125,7 +125,7 @@ class CatalogSpider(scrapy.Spider):
         @returns items 1 1
         @returns requests 0 0
         """
-        logger.info('Parsing class from department %s URL=%s Status=%d',
+        logger.debug('Parsing class from department %s URL=%s Status=%d',
                     ColumbiaDepartmentListing.get_from_response_meta(response)['department_code'],
                     response.url, response.status)
         self.crawler.stats.inc_value('catalog_parsed_classes')

@@ -212,10 +212,10 @@ class TestCatalogSpider(BetamaxTestCase):
         results_search, results_prof = _test_instr('John Glendinning')
         self.assertGreater(len(results_search), 0)
         self.assertIsInstance(results_search[0], Request)
+        del results_prof[0]['reviews']
         self.assertEqual([{'link': 'http://culpa.info/professors/953',
-                                 'name': 'John Glendinning',
-                                 'nugget': None,
-                                 'reviews_count': 23}],
+                            'name': 'John Glendinning',
+                            'nugget': None}],
                          results_prof)
 
         # not existing prof
@@ -225,15 +225,15 @@ class TestCatalogSpider(BetamaxTestCase):
         # silver nugget
         results_search, results_prof = _test_instr('Jennie Kassanoff')
         self.assertGreater(len(results_search), 0)
+        del results_prof[0]['reviews']
         self.assertEqual(results_prof, [{'link': 'http://culpa.info/professors/717',
                                  'name': 'Jennie Kassanoff',
-                                 'nugget': 'silver',
-                                 'reviews_count': 20}])
+                                 'nugget': 'silver'}])
 
         # silver nugget
         results_search, results_prof = _test_instr('Aftab Ahmad')
         self.assertGreater(len(results_search), 0)
+        del results_prof[0]['reviews']
         self.assertEqual(results_prof, [{'link': 'http://culpa.info/professors/10941',
                                  'name': 'Aftab Ahmad',
-                                 'nugget': 'gold',
-                                 'reviews_count': 12}])
+                                 'nugget': 'gold'}])

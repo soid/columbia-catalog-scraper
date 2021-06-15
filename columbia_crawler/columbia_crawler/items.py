@@ -6,6 +6,7 @@
 # https://docs.scrapy.org/en/latest/topics/items.html
 from __future__ import annotations
 
+import datetime
 import logging
 import random
 import re
@@ -74,8 +75,11 @@ class ColumbiaClassListing(scrapy.Item):
     open_to = scrapy.Field()
     campus = scrapy.Field()
     method_of_instruction = scrapy.Field()
+    enrollment = scrapy.Field()
 
     raw_content = scrapy.Field()  # html
+
+    RE_ENROLLMENT = re.compile(r'(\d+) [^\d]+(\((\d+)[^\d]+\))?[^\d]+')
 
     def describe(self) -> str:
         return self['class_id']
@@ -148,6 +152,10 @@ class ColumbiaClassListing(scrapy.Item):
             self.call_number = self._get_field("Call Number")
             self.campus = self._get_field("Campus")
 
+            enrollment_string = self._get_field('Enrollment')
+            self.enrollment_date, self.enrollment_current, self.enrollment_max \
+                = self._get_enrollment(enrollment_string)
+
         def _get_field(self, field_name, first_line_only=False):
             if field_name in self.fields:
                 v = self.fields[field_name].css('::text')
@@ -171,6 +179,37 @@ class ColumbiaClassListing(scrapy.Item):
             if len(sub_lines) > 0:
                 return sub_lines[0]
             return None
+
+        @staticmethod
+        def _get_enrollment(enrollment_string: str):
+            """
+
+            >>> ColumbiaClassListing._Parser._get_enrollment( \
+                "0 students (10 max) as of 12:04PM Thursday, May 20, 2021")
+            (datetime.date(2021, 5, 20), 0, 10)
+            >>> ColumbiaClassListing._Parser._get_enrollment( \
+                "0 students as of  8:04AM Saturday, May 22, 2021")
+            (datetime.date(2021, 5, 22), 0, None)
+            >>> ColumbiaClassListing._Parser._get_enrollment("")
+            (None, None, None)
+            >>> ColumbiaClassListing._Parser._get_enrollment("axcvse")
+            (None, None, None)
+            """
+            if enrollment_string:
+                m = ColumbiaClassListing.RE_ENROLLMENT.match(enrollment_string)
+                if m:
+                    enrollment_current = int(m.group(1))
+                    if m.group(3):
+                        enrollment_max = int(m.group(3))
+                    else:
+                        enrollment_max = None
+                    date_str = enrollment_string.split('as of', 1)[1].strip()
+                    enrollment_date = datetime.datetime.strptime(date_str, '%I:%M%p %A, %B %d, %Y').date()
+                    enrollment_date = enrollment_date
+                    return enrollment_date, enrollment_current, enrollment_max
+                else:
+                    logger.warning("Didn't match enrollment string: %s", enrollment_string)
+            return None, None, None
 
     PREREQ_PATTERN = re.compile(r'([A-Z]{4} [A-Z][A-Z]?[0-9]{4}|[A-Z][A-Z]?[0-9]{4}|[oO][rR]|[aA][nN][dD])')
 
@@ -240,6 +279,9 @@ class ColumbiaClassListing(scrapy.Item):
             campus=class_parser.campus,
             method_of_instruction=class_parser.method_of_instruction,
             department_listing=ColumbiaDepartmentListing.get_from_response_meta(response),
+            enrollment=ColumbiaClassListing._get_enrollment(class_parser.enrollment_date,
+                                                            class_parser.enrollment_current,
+                                                            class_parser.enrollment_max),
             raw_content=response.body_as_unicode()
         )
         return class_listing
@@ -247,6 +289,9 @@ class ColumbiaClassListing(scrapy.Item):
     @staticmethod
     def get_test():
         test_item = get_test_item(ColumbiaClassListing)
+        test_item['enrollment'] = ColumbiaClassListing._get_enrollment(datetime.date.today(),
+                                                                       random.randint(1, 100),
+                                                                       random.randint(100, 150))
         test_item['department_listing'] = ColumbiaDepartmentListing.get_test()
         return test_item
 
@@ -255,6 +300,15 @@ class ColumbiaClassListing(scrapy.Item):
         return response.meta.get('class_listing',
                                  ColumbiaClassListing.get_test()
                                  if config.IN_TEST else None)
+
+    @staticmethod
+    def _get_enrollment(scan_date: datetime.date, current: int, max: int):
+        return {
+            scan_date.isoformat(): {
+                'cur': current,
+                'max': max,
+            }
+        }
 
 
 class CulpaInstructor(scrapy.Item):
