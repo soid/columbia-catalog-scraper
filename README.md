@@ -21,6 +21,7 @@ Run the crawler:
 ```
 ./run-crawler.sh -p
 ```
+(use `-t` for running a small batch for testing)
 
 Run a sanity check for scrapped data:
 ```

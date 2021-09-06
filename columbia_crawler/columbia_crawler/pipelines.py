@@ -295,20 +295,23 @@ class StoreClassPipeline(object):
 
             df_enrollment_updated['enrollment'] = df_enrollment_updated \
                 .apply(StoreClassPipeline._merge_enrollment, axis=1)
+            df_enrollment_updated = StoreClassPipeline._clean_enrollment(df_enrollment_updated, term)
             df_enrollment_updated = df_enrollment_updated[StoreClassPipeline.ENROLLMENT_COLS]
 
             # don't store enrollment in main class file
-            df_json = df_json.drop(['enrollment'], axis=1)
+            if 'enrollment' in df_json.columns:
+                df_json = df_json.drop(['enrollment'], axis=1)
 
             return df_enrollment_updated
         df_enrollment_updated = _merge_enrollment()
         df_enrollment_updated.sort_values(by=['course_code', 'call_number'], inplace=True)
 
         # store enrollment in separate files
-        fn = config.DATA_CLASSES_ENROLLMENT_DIR + '/' + term + '.json'
-        file_json = open(fn, 'w')
-        df_enrollment_updated.to_json(path_or_buf=file_json, orient="records", lines=True)
-        file_json.close()
+        if len(df_enrollment_updated) > 0:
+            fn = config.DATA_CLASSES_ENROLLMENT_DIR + '/' + term + '.json'
+            file_json = open(fn, 'w')
+            df_enrollment_updated.to_json(path_or_buf=file_json, orient="records", lines=True)
+            file_json.close()
 
         # reorder columns
         df_json.sort_values(by=['course_code', 'course_title', 'call_number'], inplace=True)
@@ -350,10 +353,39 @@ class StoreClassPipeline(object):
         enr_new = row['enrollment']
         if not enr_new or pd.isna(enr_new):
             enr_new = {}
+        if 'enrollment_old' not in row:
+            return enr_new
         enr_old = row['enrollment_old']
         if not enr_old or pd.isna(enr_old):
             enr_old = {}
         return {**enr_new, **enr_old}
+
+    @staticmethod
+    def _clean_enrollment(df_enrollment_updated: pd.DataFrame, term: str):
+        """Remove enrollment data after semester ended"""
+        term_end = StoreClassPipeline._get_term_end_date(term)
+
+        def _clean(row):
+            enr = row['enrollment']
+            if len(enr) == 0:
+                return {}
+            earliest_date = min(enr.keys())
+            earliest_data = enr[earliest_date]
+            for dt_str in list(enr.keys()):
+                dt = datetime.date.fromisoformat(dt_str)
+                if dt > term_end:
+                    del enr[dt_str]
+            if len(enr) == 0:
+                # if all data points are outside of semester then just keep the earliest one
+                enr[earliest_date] = earliest_data
+            return enr
+        df_enrollment_updated['enrollment'] = df_enrollment_updated.apply(_clean, axis=1)
+
+        # remove enrollment without any data
+        filtered = df_enrollment_updated[df_enrollment_updated['enrollment'] == {}].index
+        df_enrollment_updated.drop(filtered, inplace=True)
+
+        return df_enrollment_updated
 
     @staticmethod
     def store_instructors(df_json):
@@ -425,3 +457,22 @@ class StoreClassPipeline(object):
     @staticmethod
     def _to_sorted_list(x):
         return sorted(x) if np.all(pd.notna(x)) else x
+
+    @staticmethod
+    def _get_term_end_date(term: str) -> datetime.date:
+        """
+        This function determines (roughly) when semester ends is used for stopping collecting enrollment data.
+        :param term:    string like '2021-Fall'
+
+        >>> StoreClassPipeline._get_term_end_date('2020-Fall')
+        datetime.date(2020, 12, 26)
+        """
+        year, semester = term.split('-', 1)
+        year = int(year)
+        semester = semester.lower()
+        if semester == 'spring':
+            return datetime.date(year, 5, 20)
+        elif semester == 'summer':
+            return datetime.date(year, 8, 20)
+        elif semester == 'fall':
+            return datetime.date(year, 12, 26)
