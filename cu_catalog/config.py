@@ -1,4 +1,5 @@
 import configparser
+import logging
 import os
 from os.path import dirname, abspath
 
@@ -19,6 +20,21 @@ config['project'] = dirname(dirname(abspath(__file__)))
 DATA_DIR = config['DATA_DIR']
 HTTPCACHE_DIR = config['HTTPCACHE_DIR']
 LOG_LEVEL = config['LOG_LEVEL']
+LOG_DIR = config['LOG_DIR']
+os.makedirs(LOG_DIR, exist_ok=True)
+
+
+def get_logger(logger_name: str, log_filename: str):
+    logger = logging.getLogger(logger_name)
+    log_format = '[%(threadName)s] %(levelname)s %(asctime)s - %(message)s'
+    logging.basicConfig(level=LOG_LEVEL,
+                        format=log_format)
+    log_file_handler = logging.FileHandler(LOG_DIR + '/' + log_filename)
+    log_file_handler.setFormatter(logging.Formatter(log_format))
+    logger.addHandler(log_file_handler)
+    logger.setLevel(LOG_LEVEL)
+    return logger
+
 
 if IN_TEST:
     # create temporary data directory for test

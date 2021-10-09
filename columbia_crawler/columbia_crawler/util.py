@@ -1,5 +1,6 @@
 import datetime
 import os
+import random
 import re
 import scrapy
 from typing import List, Iterable
@@ -71,8 +72,20 @@ class InstructorsInternalDb:
             self.df_internal = self.df_internal.append({'name': name}, ignore_index=True)
         self.df_internal.loc[self.df_internal['name'] == name, field] = datetime.datetime.now()
 
+    def check_its_time(self, name: str, field: str, days_min: int, days_max: int):
+        if name not in self.df_internal['name'].values:
+            return True
+        dt = self.df_internal.loc[self.df_internal['name'] == name, field].iloc[0]
+        return InstructorsInternalDb.recent_threshold(dt, days_min, days_max)
+
     def store(self):
         os.makedirs(config.DATA_INTERNAL_DB_DIR, exist_ok=True)
         with open(config.DATA_INSTRUCTORS_INTERNAL_INFO_JSON, 'w') as file_json:
             self.df_internal.sort_values(by=['name'], inplace=True)
             self.df_internal.to_json(path_or_buf=file_json, orient="records", lines=True)
+
+    @staticmethod
+    def recent_threshold(x, days_min: int, days_max: int):
+        if pd.isna(x):
+            return True
+        return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(days_min, days_max))

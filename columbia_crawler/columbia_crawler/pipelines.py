@@ -14,6 +14,7 @@ from typing import Dict, List
 from cu_catalog import config
 from columbia_crawler.items import ColumbiaClassListing, ColumbiaDepartmentListing, WikipediaInstructorSearchResults, \
     WikipediaInstructorPotentialArticle, WikipediaInstructorArticle, CulpaInstructor
+import cu_catalog.models.cudata as cudata
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,7 @@ class BaseInstructorEnrichmentPipeline(object):
 
     def close_spider(self, spider):
         # store instructors files
-        StoreClassPipeline.store_instructors(self.instr_df)
+        cudata.store_instructors(self.instr_df)
 
         # Update class files
         df_enriched = self.instr_df.filter(['name'] + list(self.update_fields.keys()))
@@ -124,7 +125,7 @@ class BaseInstructorEnrichmentPipeline(object):
             logger.info("Updating term: " + term)
 
             # load term file
-            df_term = StoreClassPipeline._read_term(term)
+            df_term = cudata.load_term(term)
             for class_field in self.update_fields.values():
                 if class_field not in df_term.columns:
                     df_term[class_field] = pd.NaT   # add column if it's not there
@@ -210,12 +211,10 @@ class StoreClassPipeline(object):
 
     def open_spider(self, spider):
         self.classes_in_term: Dict[str, List[object]] = defaultdict(lambda: [], {})
-        self.instructors = defaultdict(lambda: {}, {})
+        self.instructors = cudata.load_instructors()
 
         # mapper from instructor name to classes ref in self.classes_in_term
         self.instr2classes = defaultdict(lambda: [], {})
-
-        self._read_instructors()
 
     def process_item(self, item, spider):
         if isinstance(item, ColumbiaClassListing):
@@ -255,14 +254,14 @@ class StoreClassPipeline(object):
 
         # store instructors
         df_json = pd.DataFrame(self.instructors.values())
-        StoreClassPipeline.store_instructors(df_json)
+        cudata.store_instructors(df_json)
 
     @staticmethod
     def store_classes_term(term: str, df_json: pd.DataFrame):
         # merge old and new class file
         def _merge_term():
             nonlocal df_json
-            df_old_json = StoreClassPipeline._read_term(term)
+            df_old_json = cudata.load_term(term)
 
             # if department is absent in new, don't remove it, keep old
             # For example, if a department removes an old semester, but other departments still keep it
@@ -318,8 +317,8 @@ class StoreClassPipeline(object):
         df_json = StoreClassPipeline \
             ._change_cols_order(df_json, ['course_code', 'course_title', 'course_descr', 'instructor',
                                           'scheduled_time_start', 'scheduled_time_end'])
-        df_json['open_to'] = df_json['open_to'].apply(StoreClassPipeline._to_sorted_list)
-        df_json['prerequisites'] = df_json['prerequisites'].apply(StoreClassPipeline._to_sorted_list)
+        df_json['open_to'] = df_json['open_to'].apply(cudata.to_sorted_list)
+        df_json['prerequisites'] = df_json['prerequisites'].apply(cudata.to_sorted_list)
 
         df_csv = df_json.copy()
         df_csv['open_to'] = df_csv['open_to'] \
@@ -329,7 +328,7 @@ class StoreClassPipeline(object):
                                                      "\n".join(sorted([c for cls in prereqs for c in cls]))
                                                      if np.all(pd.notna(prereqs)) else prereqs)
 
-        StoreClassPipeline._store_df(config.DATA_CLASSES_DIR + '/' + term, df_json, df_csv)
+        cudata.store_df(config.DATA_CLASSES_DIR + '/' + term, df_json, df_csv)
 
     @staticmethod
     def _merge_enrollment(row):
@@ -388,27 +387,6 @@ class StoreClassPipeline(object):
         return df_enrollment_updated
 
     @staticmethod
-    def store_instructors(df_json):
-        os.makedirs(config.DATA_INSTRUCTORS_DIR, exist_ok=True)
-        df_json.sort_values(by=['name'], inplace=True)
-        df_json['departments'] = df_json['departments']\
-            .apply(StoreClassPipeline._to_sorted_list)
-        df_json['classes'] = df_json['classes']\
-            .apply(StoreClassPipeline._to_sorted_list)
-
-        df_csv = df_json.copy()
-        df_csv['departments'] = df_csv['departments'] \
-            .apply(lambda x: "\n".join(sorted(x)) if np.all(pd.notna(x)) else x)
-        df_csv['classes'] = df_csv['classes'] \
-            .apply(lambda x: ("\n".join([" ".join(sorted(cls)) for cls in x]) if np.all(pd.notna(x)) else x))
-        remove_columns = ['culpa_reviews']  # remove some columns from csv but leave in json
-        for c in remove_columns:
-            if c in df_csv.columns:
-                df_csv = df_csv.drop([c], axis=1)
-
-        StoreClassPipeline._store_df(config.DATA_INSTRUCTORS_DIR + '/instructors', df_json, df_csv)
-
-    @staticmethod
     def _change_cols_order(df, prioritized_cols):
         cols = sorted(df.columns)
         for n in prioritized_cols:
@@ -418,45 +396,12 @@ class StoreClassPipeline(object):
         return df
 
     @staticmethod
-    def _store_df(filename: str, df_json: pd.DataFrame, df_csv: pd.DataFrame):
-        # store json
-        file_json = open(filename + '.json', 'w')
-        df_json.to_json(path_or_buf=file_json, orient="records", lines=True)
-        file_json.close()
-
-        # store csv
-        file_csv = open(filename + '.csv', 'w')
-        df_csv.to_csv(path_or_buf=file_csv, index=False)
-        file_csv.close()
-
-    def _read_instructors(self):
-        if os.path.exists(config.DATA_INSTRUCTORS_JSON):
-            with open(config.DATA_INSTRUCTORS_JSON, 'r') as f:
-                for line in f:
-                    instr = json.loads(line)
-                    self.instructors[instr['name']] = instr
-                    if instr['departments']:
-                        instr['departments'] = set(instr['departments'])
-
-    @staticmethod
-    def _read_term(term):
-        filename = config.DATA_CLASSES_DIR + '/' + term + '.json'
-        if not os.path.exists(filename):
-            return
-        df = pd.read_json(filename, lines=True, dtype=object)
-        return df
-
-    @staticmethod
     def _read_term_enrollment(term):
         filename = config.DATA_CLASSES_ENROLLMENT_DIR + '/' + term + '.json'
         if not os.path.exists(filename):
             return pd.DataFrame(columns=StoreClassPipeline.ENROLLMENT_COLS)
         df = pd.read_json(filename, lines=True, dtype=object)
         return df
-
-    @staticmethod
-    def _to_sorted_list(x):
-        return sorted(x) if np.all(pd.notna(x)) else x
 
     @staticmethod
     def _get_term_end_date(term: str) -> datetime.date:

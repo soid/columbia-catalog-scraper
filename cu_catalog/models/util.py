@@ -4,7 +4,11 @@ from typing import Any
 
 import textdistance
 from nltk import word_tokenize, PorterStemmer
+from nltk.corpus import stopwords
 
+
+stop_words = set(stopwords.words('english'))
+punctuation = '!@#$%^&*()<>?/\\][}{\'";:,.'
 
 class Dict2Vect:
     """ Convert a list of dictionaries into a list of lists (vectors)
@@ -28,11 +32,13 @@ class Dict2Vect:
 stemmer = PorterStemmer()
 
 
-def extract_word_stems2dict(text, key_prefix="__word_"):
+def extract_word_stems2dict(text, key_prefix="__word_", remove_stopwords=False):
     """Extracts stems for every word and puts in a dict for use as features"""
     features = {}
     tokens = word_tokenize(text)
     for t in tokens:
+        if remove_stopwords and (t in stop_words or t in punctuation):
+            continue
         features[key_prefix + stemmer.stem(t)] = True
     return features
 

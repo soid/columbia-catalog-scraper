@@ -10,9 +10,11 @@ from columbia_crawler.spiders.culpa_search import CulpaSearchSpider
 from columbia_crawler.spiders.wiki_search import WikiSearchSpider
 from scrapy.utils.project import get_project_settings
 
+from cu_catalog import config
+
 settings = get_project_settings()
 settings.update({
-    "LOG_FILE": "columbia_crawlers.log"
+    "LOG_FILE": config.LOG_DIR + "/columbia_crawlers.log"
 })
 
 configure_logging(settings)
