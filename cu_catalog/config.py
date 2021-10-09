@@ -74,6 +74,10 @@ DATA_INSTRUCTORS_DIR = config['DATA_INSTRUCTORS_DIR']
 DATA_INSTRUCTORS_JSON = DATA_INSTRUCTORS_DIR + '/instructors.json'
 DATA_INSTRUCTORS_CSV = DATA_INSTRUCTORS_DIR + '/instructors.csv'
 
+# Google scholar
+DATA_GSCHOLAR_DIR = config['DATA_GSCHOLAR_DIR']
+DATA_GSCHOLAR_UNSURE_FILENAME = config['DATA_GSCHOLAR_UNSURE_FILENAME']
+
 # internal database for keeping track e.g. when instructor was last searched in wikipedia
 DATA_INTERNAL_DB_DIR = config['DATA_INTERNAL_DB_DIR']
 DATA_INSTRUCTORS_INTERNAL_INFO_JSON = config['DATA_INTERNAL_DB_DIR'] + "/instructors-internal.json"

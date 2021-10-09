@@ -3,6 +3,7 @@
 # and actually needs to
 
 import json
+import os
 import time
 
 import pandas as pd
@@ -16,7 +17,7 @@ from cu_catalog.models.util import words_match2
 # Configuration options
 MIN_WAIT, MAX_WAIT = 7, 60
 MAX_PROCESS = 300
-UPDATE_MIN_DAYS = 30
+UPDATE_MIN_DAYS = 0
 UPDATE_MAX_DAYS = 90
 
 # logger setup
@@ -51,6 +52,9 @@ def _save():
     unsure_file.flush()
 
 
+os.makedirs(config.DATA_GSCHOLAR_DIR, exist_ok=True)
+unsure_file = open(config.DATA_GSCHOLAR_UNSURE_FILENAME, 'a')  # list of possible matches
+
 names = list(instructors.keys())
 random.seed(0)
 random.shuffle(names)
@@ -58,7 +62,6 @@ pictures = {}
 num_processed = 0
 num_found = 0
 num_possible = 0
-unsure_file = open('unsure.json', 'a')  # list of possible matches
 for instructor_name in names:
     if not instructors_internal_db.check_its_time(instructor_name, 'gscholar_last_search',
                                                   UPDATE_MIN_DAYS, UPDATE_MAX_DAYS):
