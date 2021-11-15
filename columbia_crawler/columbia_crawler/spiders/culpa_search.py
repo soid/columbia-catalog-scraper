@@ -126,12 +126,13 @@ class CulpaSearchSpider(scrapy.Spider):
                 link = found_matching_names.css('a::attr(href)').get()
                 url = 'http://culpa.info' + link
                 yield self._check_culpa_instructor_profile(response.meta.get('instructor'), url)
-            else:
-                # if not found try to remove middle name if exists and search again
-                name = instructor.split()
-                name2 = [w for w in name if len(w) > 1]
-                if len(name) > len(name2):
-                    yield self._search_culpa_instructor(" ".join(name2), response.meta.get('departments'))
+                return
+
+        # if not found try to remove middle name if exists and search again
+        name = instructor.split()
+        name2 = [w for w in name if len(w) > 1]
+        if len(name) > len(name2):
+            yield self._search_culpa_instructor(" ".join(name2), response.meta.get('departments'))
 
     def parse_culpa_instructor(self, response):
         """
