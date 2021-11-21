@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 class CulpaSearchSpider(scrapy.Spider):
     name = 'culpa_search'
+    #SITE = 'localhost:8801'
+    SITE = 'culpa.info'
 
     custom_settings = {
         'HTTPCACHE_ENABLED': config.HTTP_CACHE_ENABLED,
@@ -81,11 +83,13 @@ class CulpaSearchSpider(scrapy.Spider):
         if self.instructors_internal_db is not None:
             self.instructors_internal_db.store()
 
-    def _search_culpa_instructor(self, instructor: str, departments: List[str]):
-        url = 'http://culpa.info/search?utf8=✓&search=' \
+    def _search_culpa_instructor(self, instructor: str, departments: List[str], catalog_name=None):
+        if catalog_name is None:
+            catalog_name = instructor
+        url = 'http://' + CulpaSearchSpider.SITE + '/search?utf8=✓&search=' \
               + urllib.parse.quote_plus(instructor) + '&commit=Search'
         return Request(url, callback=self.parse_culpa_search_instructor,
-                       meta={'instructor': instructor,
+                       meta={'instructor': catalog_name,
                              'departments': departments})
 
     def _check_culpa_instructor_profile(self, instructor: str, url: str):
@@ -124,7 +128,7 @@ class CulpaSearchSpider(scrapy.Spider):
                                response.meta.get('departments'))
             if len(found_matching_names) > 0:
                 link = found_matching_names.css('a::attr(href)').get()
-                url = 'http://culpa.info' + link
+                url = 'http://' + CulpaSearchSpider.SITE + link
                 yield self._check_culpa_instructor_profile(response.meta.get('instructor'), url)
                 return
 
@@ -132,7 +136,8 @@ class CulpaSearchSpider(scrapy.Spider):
         name = instructor.split()
         name2 = [w for w in name if len(w) > 1]
         if len(name) > len(name2):
-            yield self._search_culpa_instructor(" ".join(name2), response.meta.get('departments'))
+            yield self._search_culpa_instructor(" ".join(name2), response.meta.get('departments'),
+                                                catalog_name=instructor)
 
     def parse_culpa_instructor(self, response):
         """
@@ -155,6 +160,24 @@ class CulpaSearchSpider(scrapy.Spider):
         reviews = []
         reviews_html = response.css('div.professor .review')
         for review_html in reviews_html:
+            course_codes = []
+            for meta in review_html.css('.meta .subject a'):
+                course_name = meta.css('span.course_name ::text').get()
+                course_code = meta.css('span.course_number ::text').get()
+                crs = {}
+                if course_code:
+                    # remove [ ]
+                    if course_code.startswith("[") and course_code.endswith("]"):
+                        course_code = course_code[1:-1]
+                    course_code = course_code.split(' ')
+                    # transform MATH UN 1207 to MATH UN1207
+                    course_code = course_code[0] + " " + "".join(course_code[1:])
+                    crs['c'] = course_code
+                if course_name:
+                    crs['t'] = course_name
+
+                course_codes.append(crs)
+
             review_extracted = review_html.css('.review_content ::text').getall()
             review_extracted = [r.strip() for r in review_extracted if len(r.strip()) > 0]
 
@@ -181,6 +204,7 @@ class CulpaSearchSpider(scrapy.Spider):
             review = CulpaInstructor.Review(
                 text=text,
                 workload=workload,
+                course_codes=course_codes,
                 publish_date=pub_date,
                 agree_count=agree_count,
                 disagree_count=disagree_count,

@@ -324,6 +324,7 @@ class CulpaInstructor(scrapy.Item):
     class Review(scrapy.Item):
         text = scrapy.Field()
         workload = scrapy.Field()
+        course_codes = scrapy.Field()
         publish_date = scrapy.Field()
         agree_count = scrapy.Field()
         disagree_count = scrapy.Field()
@@ -331,6 +332,7 @@ class CulpaInstructor(scrapy.Item):
 
         def to_dict(self) -> dict:
             return {
+                'course_codes': self['course_codes'],
                 'text':     self['text'],
                 'workload': self['workload'],
                 'publish_date': self['publish_date'].isoformat(),
