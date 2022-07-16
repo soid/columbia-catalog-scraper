@@ -53,7 +53,7 @@ def store_instructors(df_json):
 def store_df(filename: str, df_json: pd.DataFrame, df_csv: pd.DataFrame):
     # store json
     file_json = open(filename + '.json', 'w')
-    df_json.to_json(path_or_buf=file_json, orient="records", lines=True)
+    df_json.to_json(path_or_buf=file_json, orient="records", lines=True, indent=2)
     file_json.close()
 
     # store csv
