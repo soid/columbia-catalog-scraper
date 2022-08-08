@@ -103,7 +103,7 @@ class BaseInstructorEnrichmentPipeline(object):
 
     def open_spider(self, spider):
         if os.path.exists(config.DATA_INSTRUCTORS_JSON):
-            self.instr_df = pd.read_json(config.DATA_INSTRUCTORS_JSON, lines=True)
+            self.instr_df = pd.read_json(config.DATA_INSTRUCTORS_JSON)
         else:
             self.instr_df = pd.DataFrame(dtype=object)
 
@@ -309,7 +309,7 @@ class StoreClassPipeline(object):
         if len(df_enrollment_updated) > 0:
             fn = config.DATA_CLASSES_ENROLLMENT_DIR + '/' + term + '.json'
             file_json = open(fn, 'w')
-            df_enrollment_updated.to_json(path_or_buf=file_json, orient="records", lines=True)
+            df_enrollment_updated.to_json(path_or_buf=file_json, orient="records")
             file_json.close()
 
         # reorder columns
@@ -400,7 +400,7 @@ class StoreClassPipeline(object):
         filename = config.DATA_CLASSES_ENROLLMENT_DIR + '/' + term + '.json'
         if not os.path.exists(filename):
             return pd.DataFrame(columns=StoreClassPipeline.ENROLLMENT_COLS)
-        df = pd.read_json(filename, lines=True, dtype=object)
+        df = pd.read_json(filename, dtype=object)
         return df
 
     @staticmethod
