@@ -12,12 +12,11 @@ import cu_catalog.config as config
 def load_instructors():
     instructors = defaultdict(lambda: {}, {})
     if os.path.exists(config.DATA_INSTRUCTORS_JSON):
-        with open(config.DATA_INSTRUCTORS_JSON, 'r') as f:
-            for line in f:
-                instr = json.loads(line)
-                instructors[instr['name']] = instr
-                if instr['departments']:
-                    instr['departments'] = set(instr['departments'])
+        instr_df = pd.read_json(config.DATA_INSTRUCTORS_JSON)
+        for _, instr in instr_df.reset_index().iterrows():
+            instructors[instr['name']] = instr
+            if instr['departments']:
+                instr['departments'] = set(instr['departments'])
     return instructors
 
 
