@@ -282,7 +282,7 @@ class ColumbiaClassListing(scrapy.Item):
             enrollment=ColumbiaClassListing._get_enrollment(class_parser.enrollment_date,
                                                             class_parser.enrollment_current,
                                                             class_parser.enrollment_max),
-            raw_content=response.body_as_unicode()
+            raw_content=response.text
         )
         return class_listing
 

@@ -14,9 +14,8 @@ def load_instructors():
     if os.path.exists(config.DATA_INSTRUCTORS_JSON):
         instr_df = pd.read_json(config.DATA_INSTRUCTORS_JSON)
         for _, instr in instr_df.iterrows():
-            instructors[instr['name']] = instr
-            if instr['departments']:
-                instr['departments'] = set(instr['departments'])
+            instructors[instr['name']] = instr.to_dict()
+            instructors[instr['name']]['departments'] = set(instr['departments'])
     return instructors
 
 

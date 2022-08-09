@@ -65,7 +65,7 @@ class CatalogSpider(scrapy.Spider):
             department_code=department_code,
             term_month=term_month,
             term_year=term_year,
-            raw_content=response.body_as_unicode()
+            raw_content=response.text
         )
         yield department_listing
 
