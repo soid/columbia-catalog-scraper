@@ -149,8 +149,8 @@ class StoreWikiSearchResultsPipeline(BaseInstructorEnrichmentPipeline):
         super(StoreWikiSearchResultsPipeline, self).open_spider(spider)
         # files for storing search results and articles for training classifier
         os.makedirs(config.DATA_WIKI_DIR, exist_ok=True)
-        self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME, 'w')
-        self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME, 'w')
+        self.file_wiki_search = open(config.DATA_WIKI_SEARCH_FILENAME, 'a')
+        self.file_wiki_article = open(config.DATA_WIKI_ARTICLE_FILENAME, 'a')
 
     def close_spider(self, spider):
         logger.info("Start storing data")
@@ -171,9 +171,15 @@ class StoreWikiSearchResultsPipeline(BaseInstructorEnrichmentPipeline):
         if isinstance(item, WikipediaInstructorArticle):
             wikipedia_link = 'https://en.wikipedia.org/wiki/' \
                              + quote_plus(item['wikipedia_title'].replace(' ', '_'))
+
+            def instructor_filter(x):
+                if x['name'] != item['name']:
+                    return False
+                deps = item['department'].split('; ')
+                return len(set(deps).intersection(set(x['departments']))) > 0
+
             self.instr_df.loc[
-                (self.instr_df['name'] == item['name'])
-                & self.instr_df['departments'].apply(lambda x: item['department'] in x),
+                self.instr_df.apply(instructor_filter, axis=1),
                 'wikipedia_link'] = wikipedia_link
 
         return item

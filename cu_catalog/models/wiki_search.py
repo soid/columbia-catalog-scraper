@@ -79,10 +79,10 @@ class WikiSearchClassifier(TextClassifier):
 
         super(WikiSearchClassifier, self).eval_results(y_test, y_pred, show_predictions)
 
-    def balance(self, df: pd.DataFrame):
-        # balance all labels
-        g = df.groupby('search_results.label')
-        return g.apply(lambda x: x.sample(g.size().min(), random_state=42).reset_index(drop=True))
+    # def balance(self, df: pd.DataFrame):
+    #     # balance all labels
+    #     g = df.groupby('search_results.label')
+    #     return g.apply(lambda x: x.sample(g.size().min(), random_state=42).reset_index(drop=True))
 
 
 # Various helpers

@@ -39,45 +39,15 @@ class CulpaSearchSpider(scrapy.Spider):
         self.crawler.stats.set_value('culpa_searches', 0)
         self.crawler.stats.set_value('culpa_profiles_loaded', 0)
 
-        df = pd.read_json(config.DATA_INSTRUCTORS_JSON, lines=True)
+        df = pd.read_json(config.DATA_INSTRUCTORS_JSON)
 
         # join internal db to store last check and don't check too often
         self.instructors_internal_db = util.InstructorsInternalDb(['last_culpa_search', 'last_culpa_profile'])
-        df = df.join(self.instructors_internal_db.df_internal.set_index('name'), on="name")
+        self.df = df.join(self.instructors_internal_db.df_internal.set_index('name'), on="name")
 
-        # select instructors without link
-        df_nolink = df[df['culpa_link'].isnull()]
-
-        # check every few days
-        def recent_threshold(x):
-            if pd.isna(x):
-                return True
-            return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(3, 7))
-        df_nolink = df_nolink[df_nolink['last_culpa_search'].apply(recent_threshold)]
-
-        # yield instructors without links
-        def _yield(x):
-            _, row = x
-            self.instructors_internal_db.update_instructor(row['name'], 'last_culpa_search')
-            return self._search_culpa_instructor(row['name'], row['departments'])
-        yield from util.spider_run_loop(self, df_nolink.iterrows(), _yield)
-
-        # check profiles of instructors with links
-        df_link = df[df['culpa_link'].notnull()]
-
-        def recent_threshold(x):
-            if pd.isna(x):
-                return True
-            return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(3, 7))
-        df_link = df_link[
-            df_link['last_culpa_profile'].apply(recent_threshold)
-            ]
-
-        def _yield(x):
-            _, row = x
-            self.instructors_internal_db.update_instructor(row['name'], 'last_culpa_profile')
-            return self._check_culpa_instructor_profile(row['name'], row['culpa_link'])
-        yield from util.spider_run_loop(self, df_link.iterrows(), _yield)
+        # get fresh list of culpa ids
+        yield Request('https://' + CulpaSearchSpider.SITE + '/browse_by_prof',
+                      callback=self.parse_culpa_profs_list)
 
     def close(self, reason):
         if self.instructors_internal_db is not None:
@@ -96,6 +66,51 @@ class CulpaSearchSpider(scrapy.Spider):
         return Request(url, callback=self.parse_culpa_instructor,
                       meta={'instructor': instructor,
                             'link': url})
+
+    def get_culpa_id_by_name(self, name):
+        if name in self.prof_name2culpa_id:
+            return self.prof_name2culpa_id[name]
+        else:
+            return None
+
+    def parse_culpa_profs_list(self, response):
+        # get map of all prof names -> culpa_id
+        self.prof_name2culpa_id = {r.css('a::text').get(): r.css('a::attr(href)').get()
+                                   for r in response.css('p span a')}
+
+        # # select instructors without link
+        # df_nolink = self.df[self.df['culpa_link'].isnull()]
+        #
+        # # select instructors that were not checked for a few days
+        # def recent_threshold(x):
+        #     if pd.isna(x):
+        #         return True
+        #     return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(3, 7))
+        # df_nolink = df_nolink[df_nolink['last_culpa_search'].apply(recent_threshold)]
+        #
+        # # yield instructors without links
+        # def _yield(x):
+        #     _, row = x
+        #     self.instructors_internal_db.update_instructor(row['name'], 'last_culpa_search')
+        #     return self._search_culpa_instructor(row['name'], row['departments'])
+        # yield from util.spider_run_loop(self, df_nolink.iterrows(), _yield)
+
+        # check profiles of instructors with links
+        df_link = self.df[self.df['culpa_link'].notnull()]
+
+        def recent_threshold(x):
+            if pd.isna(x):
+                return True
+            return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(3, 7))
+        df_link = df_link[
+            df_link['last_culpa_profile'].apply(recent_threshold)
+        ]
+
+        def _yield(x):
+            _, row = x
+            self.instructors_internal_db.update_instructor(row['name'], 'last_culpa_profile')
+            return self._check_culpa_instructor_profile(row['name'], row['culpa_link'])
+        yield from util.spider_run_loop(self, df_link.iterrows(), _yield)
 
     def parse_culpa_search_instructor(self, response):
         """
@@ -148,30 +163,25 @@ class CulpaSearchSpider(scrapy.Spider):
         # Idea: we could classify reviews sentiment if we capture review texts here
         self.crawler.stats.inc_value('culpa_profiles_loaded')
 
-        nugget_html = response.css('h1 img.nugget::attr(alt)').get()
+        nugget_text = response.css('p:contains("This professor has earned")::text').get()
         nugget = None
-        if nugget_html:
-            if nugget_html.upper().startswith("GOLD"):
+        if nugget_text:
+            if "GOLD" in nugget_text.upper():
                 nugget = CulpaInstructor.NUGGET_GOLD
-            if nugget_html.upper().startswith("SILVER"):
+            if "SILVER" in nugget_text.upper():
                 nugget = CulpaInstructor.NUGGET_SILVER
 
         # extract reviews
         reviews = []
-        reviews_html = response.css('div.professor .review')
+        reviews_html = response.css('div.card div.card-body')
         for review_html in reviews_html:
             course_codes = []
-            for meta in review_html.css('.meta .subject a'):
-                course_name = meta.css('span.course_name ::text').get()
-                course_code = meta.css('span.course_number ::text').get()
+            # note single review may belong to multiple courses
+            for meta in review_html.xpath('//li/a[contains(@href, "/course")]'):
+                course_name = meta.css('::text').get()
+                course_code = None  # no way to get course code at the moment
                 crs = {}
                 if course_code:
-                    # remove [ ]
-                    if course_code.startswith("[") and course_code.endswith("]"):
-                        course_code = course_code[1:-1]
-                    course_code = course_code.split(' ')
-                    # transform MATH UN 1207 to MATH UN1207
-                    course_code = course_code[0] + " " + "".join(course_code[1:])
                     crs['c'] = course_code
                 if course_name:
                     crs['t'] = course_name

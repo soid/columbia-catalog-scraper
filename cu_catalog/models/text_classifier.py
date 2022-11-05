@@ -91,6 +91,7 @@ class TextClassifier(metaclass=ABCMeta):
         print("Evaluating test data set:")
         y_pred = self.predict(self.X_test)
         self.eval_results(self.y_test, y_pred)
+        self.show_confusion_matrix(self.y_test, y_pred)
         print()
 
         print("Evaluating the entire unbalanced data set:")

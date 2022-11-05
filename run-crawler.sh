@@ -27,7 +27,7 @@ do
             exit 1
             ;;
         t)
-            scrapy crawl catalog -a test_run=True
+#             scrapy crawl catalog -a test_run=True
             scrapy crawl wiki_search -a test_run=True
 #             scrapy crawl culpa_search -a test_run=True
             exit 0

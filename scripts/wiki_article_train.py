@@ -1,4 +1,3 @@
-
 from cu_catalog.models.wiki_article import WikiArticleClassifier
 
 if __name__ == '__main__':

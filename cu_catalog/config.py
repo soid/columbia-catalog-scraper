@@ -11,9 +11,14 @@ this_dir = dirname(abspath(__file__))
 config_files = [this_dir + '/defaults.cfg']
 if not IN_TEST:
     config_files += [this_dir + '/config.cfg']
+# config in home directory takes priority if exists
+cfg_file = os.path.expanduser('~') + '/cu-catalog-scraper.cfg'
+if os.path.exists(cfg_file):
+    config_files += [cfg_file]
 conf_parser.read(config_files)
 config = conf_parser['DEFAULT']
-config['project'] = dirname(dirname(abspath(__file__)))
+if 'project' not in config:
+    config['project'] = dirname(dirname(abspath(__file__)))
 
 
 # read config values
@@ -66,6 +71,7 @@ DATA_WIKI_SEARCH_MODEL_FILENAME = config['DATA_WIKI_SEARCH_MODEL_FILENAME']
 DATA_WIKI_ARTICLE_FILENAME = config['DATA_WIKI_ARTICLE_FILENAME']
 DATA_WIKI_ARTICLE_TRAIN_FILENAME = config['DATA_WIKI_ARTICLE_TRAIN_FILENAME']
 DATA_WIKI_ARTICLE_MODEL_FILENAME = config['DATA_WIKI_ARTICLE_MODEL_FILENAME']
+DATA_WIKI_ARTICLE_MODEL_CHECKPOINTS = config['DATA_WIKI_ARTICLE_MODEL_CHECKPOINTS']
 
 # scraped classes data files
 DATA_CLASSES_DIR = config['DATA_CLASSES_DIR']

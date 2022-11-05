@@ -33,7 +33,7 @@ class Label:
         while line != '':
             row = json.loads(line)
             self.update_stat(row)
-            line = f.readline()
+            line = f.readline().strip()
         f.close()
 
     def select_sample(self) -> dict:

@@ -14,10 +14,12 @@ class LabelWikiSearch(Label):
         if row['course_descr']:
             print("              Course:       {}".format(row['course_descr']))
         print()
-        print(colored("Wikipedia article:", "yellow"))
+        print(colored("Wikipedia article (2000 chars):", "yellow"))
 
         print("Title:", colorize(row['name'], row['wiki_title']))
-        print(colorize(row['name'] + " Columbia", row['wiki_page']))
+        page_body = row['wiki_page']
+        page_body = page_body[:2000]
+        print(colorize(row['name'] + " Columbia", page_body))
 
     def print_input_description(self, row: dict):
         print()

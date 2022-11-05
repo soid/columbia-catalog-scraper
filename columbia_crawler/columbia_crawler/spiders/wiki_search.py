@@ -43,7 +43,11 @@ class WikiSearchSpider(scrapy.Spider):
         self.crawler.stats.set_value('wiki_articles_loaded', 0)
         self.crawler.stats.set_value('wiki_searches', 0)
 
-        df = pd.read_json(config.DATA_INSTRUCTORS_JSON, lines=True)
+        yield self._follow_search_wikipedia_instructor("Brian Greene",
+              "Department: Physics, Summer Session (SUMM), School of Professional Studies (SPS)")
+        return
+
+        df = pd.read_json(config.DATA_INSTRUCTORS_JSON)
 
         # join internal db to store last check and don't check too often
         self.instructors_internal_db = util.InstructorsInternalDb(['last_wikipedia_search'])
@@ -54,7 +58,7 @@ class WikiSearchSpider(scrapy.Spider):
 
         # filter out recently checked instructors
         def recent_threshold(x):
-            return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(15, 45))
+            return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(0, 1))
         df = df[df['last_wikipedia_search'].isna() | df['last_wikipedia_search'].apply(recent_threshold)]
 
         def _yield(x):
@@ -90,7 +94,7 @@ class WikiSearchSpider(scrapy.Spider):
             instructor = "Test Testoff"
             department = "Memology"
 
-        json_response = json.loads(response.body_as_unicode())
+        json_response = json.loads(response.text)
         search = json_response['query']['search']
         logger.debug('WIKI: Search results for %s : %s', instructor, search)
 
@@ -155,7 +159,7 @@ class WikiSearchSpider(scrapy.Spider):
             instructor = "Test Testoff"
             department = "Memology"
 
-        json_response = json.loads(response.body_as_unicode())
+        json_response = json.loads(response.text)
         pages = json_response['query']['pages']
         page = next(iter(pages.values()))
 
@@ -168,9 +172,10 @@ class WikiSearchSpider(scrapy.Spider):
         yield item
 
         # predict/classify if article is related to instructor
-        rows = [self.article_clf.extract_features2vector(item.to_dict())]
+        rows = [item.to_dict()]
         pred = self.article_clf.predict(rows)
-        if pred == WikiArticleClassifier.LABEL_RELEVANT:
+        if pred[0] == WikiArticleClassifier.LABEL_RELEVANT:
             yield WikipediaInstructorArticle(
                 name=instructor,
+                department=department,
                 wikipedia_title=page['title'])
