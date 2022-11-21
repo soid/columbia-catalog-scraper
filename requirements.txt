@@ -3,6 +3,8 @@ numpy
 textdistance~=4.2.0
 textdistance[extras]
 termcolor
+torch
+transformers
 pandas
 sklearn
 scikit-learn
@@ -10,4 +12,5 @@ Scrapy
 w3lib
 requests
 betamax
+datasets
 unidecode
