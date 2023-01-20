@@ -43,10 +43,6 @@ class WikiSearchSpider(scrapy.Spider):
         self.crawler.stats.set_value('wiki_articles_loaded', 0)
         self.crawler.stats.set_value('wiki_searches', 0)
 
-        yield self._follow_search_wikipedia_instructor("Brian Greene",
-              "Department: Physics, Summer Session (SUMM), School of Professional Studies (SPS)")
-        return
-
         df = pd.read_json(config.DATA_INSTRUCTORS_JSON)
 
         # join internal db to store last check and don't check too often
@@ -58,7 +54,7 @@ class WikiSearchSpider(scrapy.Spider):
 
         # filter out recently checked instructors
         def recent_threshold(x):
-            return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(0, 1))
+            return x < datetime.datetime.now() - datetime.timedelta(days=random.randint(15, 45))
         df = df[df['last_wikipedia_search'].isna() | df['last_wikipedia_search'].apply(recent_threshold)]
 
         def _yield(x):
@@ -110,7 +106,6 @@ class WikiSearchSpider(scrapy.Spider):
 
         # use classifier to find match or possible match
         rows = []
-        rows_vec = []
         for result in search:
             title = result['title']
             snippet = result['snippet']
@@ -121,10 +116,9 @@ class WikiSearchSpider(scrapy.Spider):
                 'search_results.snippet': snippet,
             }
             rows.append(row)
-            rows_vec.append(self.search_clf.extract_features2vector(row))
 
         # see if we found worthy items
-        pred = self.search_clf.predict(rows_vec)
+        pred = self.search_clf.predict(rows)
         for p, row in zip(pred, rows):
             if p == WSC.LABEL_RELEVANT:
                 yield WikipediaInstructorArticle(

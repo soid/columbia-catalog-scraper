@@ -60,14 +60,23 @@ class TextClassifierDBERT(metaclass=ABCMeta):
 
     def load_training_data(self):
         self._load_data()
-        print("Initial data for training:")
+        print("Initial all data:")
         self.data.set_format('pandas')
         display(self.data[self.label_field_name].value_counts())
         self.data.set_format(None)
-        # print("Train set:")
-        # display(self.dataset_train.value_counts())
-        # print("Test set:")
-        # display(self.dataset_test.value_counts())
+        print()
+
+        print("Train set:")
+        self.dataset_train.set_format('pandas')
+        display(self.dataset_train[self.label_field_name].value_counts())
+        self.dataset_train.set_format(None)
+        print()
+
+        print("Test set:")
+        self.dataset_test.set_format('pandas')
+        display(self.dataset_test[self.label_field_name].value_counts())
+        self.dataset_test.set_format(None)
+
 
     def fit(self):
         model_ckpt = "distilbert-base-uncased"

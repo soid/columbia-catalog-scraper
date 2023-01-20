@@ -1,5 +1,6 @@
 from cu_catalog import config
 from cu_catalog.models.text_classifier_dbert import TextClassifierDBERT
+import cu_catalog.models.util as util
 
 
 class WikiArticleClassifier(TextClassifierDBERT):
@@ -20,18 +21,17 @@ class WikiArticleClassifier(TextClassifierDBERT):
 
     @property
     def training_params(self):
-        return 30, 4
+        return 20, 4
 
     def tokenize(self, batch, return_tensors=None):
-        inputs = batch['name'] + ' is ' + batch['wiki_title']\
-                 + ', who teaches ' + batch['department'] \
-                 + '[SEP]' + batch['wiki_title'] \
-                 + "[SEP]" + batch['wiki_page']
-        inputs = 'Is ' + batch['name'] + ' the same as ' + batch['wiki_title'] \
-                 + ', who teaches ' + batch['department'] + "?" \
-                 + "[SEP]"  + batch['wiki_page']
+        if util.words_match2(batch['name'], batch['wiki_title']):
+            clue_name = "Yes"
+        else:
+            clue_name = "No"
+
         inputs = batch['name'] \
                  + ' [SEP] ' + batch['department'] \
+                 + ' [SEP] ' + clue_name \
                  + ' [SEP] ' + batch['wiki_title'] \
                  + " [SEP] " + batch['wiki_page']
         return self.tokenizer(inputs, padding=True, truncation=True, return_tensors=return_tensors)

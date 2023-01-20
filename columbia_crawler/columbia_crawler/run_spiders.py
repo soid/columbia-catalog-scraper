@@ -30,8 +30,8 @@ def crawl():
     crawler_catalog = runner.create_crawler(CatalogSpider)
     yield runner.crawl(crawler_catalog)
 
-    # crawler_wiki_search = runner.create_crawler(WikiSearchSpider)
-    # yield runner.crawl(crawler_wiki_search)
+    crawler_wiki_search = runner.create_crawler(WikiSearchSpider)
+    yield runner.crawl(crawler_wiki_search)
 
     # crawler_culpa_search = runner.create_crawler(CulpaSearchSpider)
     # yield runner.crawl(crawler_culpa_search)
@@ -39,7 +39,7 @@ def crawl():
     reactor.stop()
 
     logger.info("Catalog crawling results:\n%s", pprint.pformat(crawler_catalog.stats.get_stats()))
-    # logger.info("Wikipedia crawling results:\n%s", pprint.pformat(crawler_wiki_search.stats.get_stats()))
+    logger.info("Wikipedia crawling results:\n%s", pprint.pformat(crawler_wiki_search.stats.get_stats()))
     # logger.info("CULPA crawling results:\n%s", pprint.pformat(crawler_culpa_search.stats.get_stats()))
 
 
