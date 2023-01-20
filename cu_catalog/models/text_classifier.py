@@ -11,6 +11,7 @@ from cu_catalog.models.util import Dict2Vect
 import joblib
 
 
+# simple NB classifier. Deprecated.
 class TextClassifier(metaclass=ABCMeta):
     def __init__(self, data_filename: str, model_filename: str):
         self.data_filename = data_filename

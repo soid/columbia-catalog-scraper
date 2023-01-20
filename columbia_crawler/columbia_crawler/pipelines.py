@@ -61,6 +61,9 @@ class StoreRawListeningPipeline(object):
         return True
 
     def process_item(self, item, spider):
+        if not config.DATA_RAW_ENABLED:
+            # skip, if not enabled
+            return item
         if isinstance(item, ColumbiaDepartmentListing):
             self.process_department_listing(item)
         if isinstance(item, ColumbiaClassListing):

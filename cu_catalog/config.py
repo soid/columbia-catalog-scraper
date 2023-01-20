@@ -59,6 +59,7 @@ if IN_TEST:
 HTTP_CACHE_ENABLED = config.getboolean('HTTP_CACHE_ENABLED')
 
 # data directories
+DATA_RAW_ENABLED = config['DATA_RAW_ENABLED']
 DATA_RAW_DIR = config['DATA_RAW_DIR']
 DATA_WIKI_DIR = config['DATA_WIKI_DIR']
 
