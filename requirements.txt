@@ -6,7 +6,6 @@ termcolor
 torch
 transformers
 pandas
-sklearn
 scikit-learn
 Scrapy
 w3lib
