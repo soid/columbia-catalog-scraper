@@ -1,6 +1,7 @@
 import logging
 import re
 from urllib.parse import urlparse
+from urllib.parse import urljoin
 
 import scrapy
 from scrapy import Request
@@ -29,9 +30,6 @@ class CatalogSpider(scrapy.Spider):
 
     empty_string = re.compile("^[ \\n]*$")
 
-    def get_domain(self, response):
-        return '{uri.scheme}://{uri.netloc}/'.format(uri=urlparse(response.url))
-
     def parse(self, response):
         """ Starting with department list, crawl all listings by each department.
 
@@ -46,8 +44,9 @@ class CatalogSpider(scrapy.Spider):
         i = 0
         dep_url: str
         for dep_url in response.css('a::attr(href)').getall():
-            if "/cu/bulletin/uwb/sel/" in dep_url:
-                follow_url = self.get_domain(response) + dep_url
+            if "/sel/" in dep_url:
+                # resolve relative URL path
+                follow_url = urljoin(response.url, dep_url)
                 yield Request(follow_url, callback=self.parse_department_listing)
                 i += 1
                 if test_run and i > 20:
@@ -69,9 +68,9 @@ class CatalogSpider(scrapy.Spider):
         )
         yield department_listing
 
-        for cls_section in response.xpath('//tr/td/a[contains(@href, "/cu/bulletin/uwb/subj/")]/../..'):
-            class_url = cls_section.xpath('.//a[contains(@href, "/cu/bulletin/uwb/subj/")]/@href').get()
-            follow_url = self.get_domain(response) + class_url
+        for cls_section in response.xpath('//tr/td/a[contains(@href, "/subj/")]/../..'):
+            class_url = cls_section.xpath('.//a[contains(@href, "/subj/")]/@href').get()
+            follow_url = urljoin(response.url, class_url)
             yield Request(follow_url, callback=self.parse_class_listing,
                           meta={
                               'department_listing': department_listing,
