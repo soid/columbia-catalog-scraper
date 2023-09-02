@@ -1,4 +1,5 @@
 import pprint
+import shutil
 import time
 from twisted.internet import reactor, defer
 from scrapy.crawler import CrawlerRunner
@@ -23,6 +24,14 @@ start = time.time()
 logger.info("Starting all spiders")
 
 runner = CrawlerRunner(settings)
+
+
+# check disk space
+total, used, free = shutil.disk_usage(config.DATA_CLASSES_DIR)
+if free < 300*1024*1024:  # one gig
+    logger.error("Not enough space on device to run the crawler. "
+                 "Need 300MB. Available: %s Mb", free//(1024*1024))
+    exit(3)
 
 
 @defer.inlineCallbacks
