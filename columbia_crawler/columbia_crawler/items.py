@@ -102,10 +102,10 @@ class ColumbiaClassListing(scrapy.Item):
             self.response = response
 
             # parse the class table
-            self.content_all = [tr.css('td') for tr in response.css('tr')]
-            self.content = filter(lambda x: len(x) == 2, self.content_all)  # non-fields have only 1 td tag
+            self.content = [(tr.css('th'), tr.css('td')) for tr in response.css('tr')]
             self.fields = {field_name.css('::text').get(): field_value
-                           for field_name, field_value in self.content}
+                           for field_name, field_value in self.content
+                           if field_name.css('::text').get() is not None}
 
             # main fields
             self.class_id = [p for p in response.url.split('/') if len(p) > 0][-1]
@@ -162,22 +162,13 @@ class ColumbiaClassListing(scrapy.Item):
                 return v.get() if first_line_only else "\n".join(v.getall())
 
         def _get_course_title(self):
-            rows_with_1_col = filter(lambda x: len(x) == 1, self.content_all)
-            fonts = [r.css('font[size*="+2"]::text').getall() for r in rows_with_1_col]
-            lines = [line for lines in fonts for line in lines]
-            if len(lines) > 1:
-                logger.warning("More than one line in identified course title: %s", lines)
-            if len(lines) == 0:
-                return ''  # no title
-            course_title = lines[0]
+            course_title = self.response.xpath('//div/h1/text()').get()
             return course_title
 
         def _get_course_subtitle(self):
-            rows_with_1_col = filter(lambda x: len(x) == 1, self.content_all)
-            itag = [r.css('i::text').getall() for r in rows_with_1_col]
-            sub_lines = [line for lines in itag for line in lines]
-            if len(sub_lines) > 0:
-                return sub_lines[0]
+            subtitle = self.response.xpath('//div/h3/text()').get()
+            if subtitle and len(subtitle) > 0:
+                return subtitle
             return None
 
         @staticmethod
