@@ -318,7 +318,11 @@ class StoreClassPipeline(object):
         if len(df_enrollment_updated) > 0:
             fn = config.DATA_CLASSES_ENROLLMENT_DIR + '/' + term + '.json'
             file_json = open(fn, 'w')
-            df_enrollment_updated.to_json(path_or_buf=file_json, orient="records", indent=2)
+            if term in ["2023-Fall"]:
+                # some files are two large when indented
+                df_enrollment_updated.to_json(path_or_buf=file_json, orient="records")
+            else:
+                df_enrollment_updated.to_json(path_or_buf=file_json, orient="records", indent=2)
             file_json.close()
 
         # reorder columns
