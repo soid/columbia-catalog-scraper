@@ -69,7 +69,8 @@ class InstructorsInternalDb:
     def update_instructor(self, name: str, field: str):
         assert field in self.datetime_fields
         if name not in self.df_internal['name'].values:
-            self.df_internal = self.df_internal.append({'name': name}, ignore_index=True)
+            new_row = pd.DataFrame([{'name': name}])
+            self.df_internal = pd.concat([self.df_internal, new_row], ignore_index=True)
         self.df_internal.loc[self.df_internal['name'] == name, field] = datetime.datetime.now()
 
     def check_its_time(self, name: str, field: str, days_min: int, days_max: int):

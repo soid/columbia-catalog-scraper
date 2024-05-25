@@ -16,7 +16,10 @@ logger = logging.getLogger(__name__)
 class CatalogSpider(scrapy.Spider):
     name = 'catalog'
 
-    start_urls = ["http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html"]
+    start_urls = [
+        #"http://www.columbia.edu/cu/bulletin/uwb/sel/departments.html"
+        "https://doc.sis.columbia.edu/sel/departments.html"
+    ]
 
     custom_settings = {
         'HTTPCACHE_ENABLED': config.HTTP_CACHE_ENABLED,
