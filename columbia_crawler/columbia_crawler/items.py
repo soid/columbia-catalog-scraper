@@ -159,7 +159,9 @@ class ColumbiaClassListing(scrapy.Item):
         def _get_field(self, field_name, first_line_only=False):
             if field_name in self.fields:
                 v = self.fields[field_name].css('::text')
-                return v.get() if first_line_only else "\n".join(v.getall())
+                result = v.get() if first_line_only else "\n".join(v.getall())
+                result = result.strip()
+                return result
 
         def _get_course_title(self):
             course_title = self.response.xpath('//div/h1/text()').get()
