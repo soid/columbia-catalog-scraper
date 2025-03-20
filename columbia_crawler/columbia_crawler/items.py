@@ -296,6 +296,10 @@ class ColumbiaClassListing(scrapy.Item):
 
     @staticmethod
     def _get_enrollment(scan_date: datetime.date, current: int, max: int):
+        if current is None:
+            current = "?"
+        if max is None:
+            max = "?"
         return {
             scan_date.isoformat(): f"{current}/{max}"
         }
